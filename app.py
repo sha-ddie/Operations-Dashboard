@@ -133,7 +133,7 @@ def par_color(val):
 
 @st.cache_data ## loan register data
 def load_loan_register():
-    client = gspread.authorize(creds)
+    client = os.environ.get("CREDENTIALS_KEY")
     spreadsheet_id = "1DEKCaV3PaXcnAbK8ZoQa4ty7CzArmCG2zMsDrETVzYE"
     worksheet_id = 1503994147
     spreadsheet = client.open_by_key(spreadsheet_id)
@@ -150,7 +150,7 @@ def load_loan_register():
 @st.cache_data  ## collections data
 def load_collections_data():
     # Authorize client
-    client = gspread.authorize(creds)
+    client = os.environ.get("CREDENTIALS_KEY")
     sheet_id = "1JIuHZ5VM4veoitH8yF8KnZ38qKn-QTbPTqUJmO5b6t8"
     spreadsheet = client.open_by_key(sheet_id)
     sheet_id = 1428160709

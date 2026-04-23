@@ -110,7 +110,7 @@ sidebar_button("📋 Collections Tracker", "collections")
 
 #------------- Reading Data--------------
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-creds = Credentials.from_service_account_file( "Access-Key.json", scopes=SCOPES)
+creds = Credentials.from_service_account_file( os.environ.get("CREDENTIALS_KEY"), scopes=SCOPES)
 
 #helper funstions
 def clean_columns(columns):
@@ -133,7 +133,7 @@ def par_color(val):
 
 @st.cache_data ## loan register data
 def load_loan_register():
-    client = os.environ.get("CREDENTIALS_KEY")
+    client = gspread.authorize(creds)
     spreadsheet_id = "1DEKCaV3PaXcnAbK8ZoQa4ty7CzArmCG2zMsDrETVzYE"
     worksheet_id = 1503994147
     spreadsheet = client.open_by_key(spreadsheet_id)
@@ -150,7 +150,7 @@ def load_loan_register():
 @st.cache_data  ## collections data
 def load_collections_data():
     # Authorize client
-    client = os.environ.get("CREDENTIALS_KEY")
+    client = gspread.authorize(creds)
     sheet_id = "1JIuHZ5VM4veoitH8yF8KnZ38qKn-QTbPTqUJmO5b6t8"
     spreadsheet = client.open_by_key(sheet_id)
     sheet_id = 1428160709
@@ -326,18 +326,6 @@ def render_collections():
         with st.spinner("Loading Collections Data...."):
             time.sleep(1)
             coll_data = load_collections_data()
-    
-    # if "run_toggle" not in st.session_state:
-    #     st.session_state.run_toggle = False
-    # # widget (ONLY read value, don't assign directly)
-    # toggle_value = st.toggle(  "Fetch Collection Remarks Data", value=st.session_state.run_toggle )
-    # # detect rising edge (OFF → ON)
-    # if toggle_value and not st.session_state.run_toggle:
-    #     st.session_state.run_toggle = True
-    #     with st.spinner("Loading Collections Data...."):
-    #         time.sleep(1)
-    #         coll_data = load_collections_data()
-    #     st.session_state.run_toggle = False  # reset after run
         
     search_val = st.text_input("Search File No")
     if search_val: 
@@ -369,33 +357,6 @@ def render_collections():
         col2.metric("Total Balance", f"{portfolio:,.0f}")
         col3.metric("Total Arrears", f"{arrears:,.0f}")
         col4.metric("Days in Arrears", f"{days:,.0f}")
-
-    # with col1:
-    #     st.markdown("#### 💼 Portfolio")
-    #     st.markdown(f"#### {total_portfolio:,.0f}")
-    # with col2:
-    #     st.markdown("#### ⚠️ Arrears")
-    #     st.markdown(f"#### {total_arrears:,.0f}")
-    #     st.caption(f"Arrear {total_arrears/total_portfolio:.1%} of loan book")
-    # with col3:
-    #     st.markdown("#### 📉 PAR")
-    #     st.markdown(f"#### {par:.2%}")
-    #     st.caption(f"Non-Performing loan book: {non_performing/1_000_000:,.2f}M ")
-    #     with st.expander("Preview Collection Remarks",icon="📋"):
-            
-        # col1, col2, col3 = st.columns(3)
-        # with col1:
-        #     search_val = st.text_input("Search Member No")
-        #         # if search_val: cust_filter = df.index[df.index.astype(str) == search_val]
-        #         # else: cust_filter = df.index.unique()
-        # with col2:
-        #     category_filter = st.selectbox( "Category",options=["All"] + list(df["Category"].dropna().unique()) )
-        #     if category_filter=="All": category_filter =df["Category"].unique() 
-        #     else: category_filter= [category_filter]
-        # with col3:
-        #     branch_filter = st.selectbox( "Branch Code", options=["All"] + list(df["Branch Code"].dropna().unique()) )
-        #     if  branch_filter=="All": branch_filter =df["Branch Code"].unique() 
-        #     else: branch_filter= [branch_filter]
             
             # --- Apply filters --- coll_data
     # st.write(coll_data.columns)    

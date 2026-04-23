@@ -133,14 +133,15 @@ def par_color(val):
     elif 0.35 <= val <= 0.4: return "background-color: #ffe08a"  # amber
     else:  return "background-color: #ff9999"  # red
 
-@st.cache_data ## loan register data
-def load_loan_register():
-    client = gspread.authorize(creds)
-    spreadsheet_id = "1DEKCaV3PaXcnAbK8ZoQa4ty7CzArmCG2zMsDrETVzYE"
+@st.cache_data(ttl=18000) ## loan register data
+def load_loan_register(_creds):
+    client = gspread.authorize(_creds) # authorize credentials
+    sheet_key = "1DEKCaV3PaXcnAbK8ZoQa4ty7CzArmCG2zMsDrETVzYE"
+    # open google sheet
+    spreadsheet = client.open_by_key(sheet_key)
     worksheet_id = 1503994147
-    spreadsheet = client.open_by_key(spreadsheet_id)
     sheet = spreadsheet.get_worksheet_by_id(worksheet_id)
-    df = pd.DataFrame(sheet.get_all_records())
+    df = pd.DataFrame(sheet.get_all_records()) # fetch all records of the specific sheet id
 
     df['Branch Code'] = df['Branch Code'].replace("KRK","RNG" )
     #creating Category column
@@ -149,14 +150,14 @@ def load_loan_register():
     df["Category"] = pd.cut( df["Days in Arrears"], bins=bins, labels=labels, include_lowest=True ,right=False)
     return df
 
-@st.cache_data  ## collections data
-def load_collections_data():
-    # Authorize client
-    client = gspread.authorize(creds)
-    sheet_id = "1JIuHZ5VM4veoitH8yF8KnZ38qKn-QTbPTqUJmO5b6t8"
-    spreadsheet = client.open_by_key(sheet_id)
-    sheet_id = 1428160709
-    sheet = spreadsheet.get_worksheet_by_id(sheet_id)
+@st.cache_data(ttl=600)  ## collections data
+def load_collections_data_creds
+    client = gspread.authorize(_creds)# authorize credentials
+    sheet_key = "1JIuHZ5VM4veoitH8yF8KnZ38qKn-QTbPTqUJmO5b6t8"
+    # open google sheet
+    spreadsheet = client.open_by_key(sheet_key)
+    worksheet_id = 1428160709
+    sheet = spreadsheet.get_worksheet_by_id(worksheet_id)  # fetch all records of the specific sheet id
     coll_data = pd.DataFrame(sheet.get_all_values())
 
     # formarting data
@@ -324,7 +325,7 @@ def render_collections():
             div.stButton > button[kind="primary"] {background-color: #a1b586; color: white;}
             </style> """, unsafe_allow_html=True )
     
-    if st.button("Fetch Collection Remarks Details", type="primary"):
+    if st.button("Fetch Collection Remarks", type="primary"):
         with st.spinner("Loading Collections Data...."):
             time.sleep(1)
             coll_data = load_collections_data()
@@ -366,7 +367,7 @@ def render_collections():
         st.markdown(
                 """
                 <div style="width: 40%;background-color:#eb8888; padding:15px; border-radius:5px; color:White; font-weight: bold;">
-                    No data found....click toggle to fetch remarks
+                    No data found ....Click Fetch remarks
                 </div>
                 """,    unsafe_allow_html=True )
         # st.warning("No data found....click toogle to fetch remarks")

@@ -151,7 +151,7 @@ def load_loan_register(_creds):
     return df
 
 @st.cache_data(ttl=600)  ## collections data
-def load_collections_data(_creds)
+def load_collections_data(_creds):
     client = gspread.authorize(_creds)# authorize credentials
     sheet_key = "1JIuHZ5VM4veoitH8yF8KnZ38qKn-QTbPTqUJmO5b6t8"
     # open google sheet

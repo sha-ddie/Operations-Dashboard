@@ -7,6 +7,7 @@ import string
 import re
 import time
 import gspread
+import os 
 from google.oauth2.service_account import Credentials
 
 # ---------------- PAGE CONFIG ----------------

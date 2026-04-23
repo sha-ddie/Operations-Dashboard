@@ -315,10 +315,11 @@ def render_arrears():
                     (df["Branch Code"].isin(branch_filter)) ].sort_values(by =['Days in Arrears','Member Name'],ascending=True)
             st.dataframe(filtered_df.style.format({ "Total Balance": "{:,.2f}","Total In Arrears Loans": "{:,.2f}" }) )
 
-def render_collections(coll_data):
+def render_collections():
     st.header("Collections and Demands")
     # initialize toggle state
-    # coll_data = pd.DataFrame()
+    if "coll_data" not in st.session_state:
+        st.session_state.coll_data = pd.DataFrame()
     st.markdown( """
             <style>
             div.stButton > button[kind="primary"] {background-color: #a1b586; color: white;}
@@ -327,8 +328,11 @@ def render_collections(coll_data):
     if st.button("Fetch Collection Remarks", type="primary"):
         with st.spinner("Loading Collections Data...."):
             time.sleep(1)
-            coll_data = load_collections_data(creds)
-        
+            # Load data into session_state, not local var
+            st.session_state.coll_data = load_collections_data(creds)
+    # 4. Access the persistent data from session_state
+    coll_data = st.session_state.coll_data    
+    
     search_val = st.text_input("Search File No")
     if search_val: 
         search_val = str( search_val.rjust(4,"0"))

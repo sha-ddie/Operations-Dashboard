@@ -239,7 +239,7 @@ def render_overview():
             # --- number formatting ---
             .format({ "Customers": "{:,}", "Portfolio": "{:,.0f}", "Arrears Amount": "{:,.0f}", "PAR": "{:.2%}" })
             # --- PAR conditional coloring ---
-            .applymap(par_color, subset=["PAR"])  ) 
+            .map(par_color, subset=["PAR"])  ) 
         # Display in Streamlit
         st.dataframe( styled.hide(axis="index"), use_container_width=True,  height=250 )
 
@@ -267,7 +267,7 @@ def render_arrears():
             # --- number formatting ---
             .format({ "1-30": "{:,.0f}", "31-60": "{:,.0f}", "61-90": "{:,.0f}","91&Above": "{:,.0f}","Total": "{:,.0f}", "PAR": "{:.2%}" })
             # --- PAR conditional coloring ---
-            .applymap(par_color, subset=["PAR"])   ) 
+            .map(par_color, subset=["PAR"])   ) 
         # Display in Streamlit
         st.dataframe( styled.hide(axis="index"), use_container_width=True,  height=300 )
 
@@ -283,7 +283,7 @@ def render_arrears():
             # --- number formatting ---
             .format({ "1-30": "{:.2%}", "31-60": "{:.2%}", "61-90": "{:.2%}","91&Above": "{:.2%}","Total": "{:.2%}" })
             # --- PAR conditional coloring ---
-            .applymap(par_color, subset=["Total"]) )
+            .map(par_color, subset=["Total"]) )
         # Display in Streamlit
         st.dataframe( styled1.hide(axis="index"), use_container_width=True,  height=300 )
 

@@ -112,7 +112,7 @@ sidebar_button("📋 Collections Tracker", "collections")
 #------------- Reading Data--------------
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 credentials_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS_JSON"])
-creds = Credentials.from_service_account_file( credentials_dict, scopes=SCOPES)
+creds = Credentials.from_service_account_info( credentials_dict, scopes=SCOPES)
 
 #helper funstions
 def clean_columns(columns):

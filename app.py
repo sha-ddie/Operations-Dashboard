@@ -178,8 +178,7 @@ def load_collections_data(_creds):
     return coll_data
     
 with st.spinner("Loading Data...."):
-    data = load_loan_register()
-    # coll_data = load_collections_data()
+    data = load_loan_register(creds)
 
 # global variables
 cols = ['Branch Code', 'Member No', 'Loan No', 'Member Name', 'Loan Type',
@@ -328,7 +327,7 @@ def render_collections():
     if st.button("Fetch Collection Remarks", type="primary"):
         with st.spinner("Loading Collections Data...."):
             time.sleep(1)
-            coll_data = load_collections_data()
+            coll_data = load_collections_data(creds)
         
     search_val = st.text_input("Search File No")
     if search_val: 

@@ -315,10 +315,10 @@ def render_arrears():
                     (df["Branch Code"].isin(branch_filter)) ].sort_values(by =['Days in Arrears','Member Name'],ascending=True)
             st.dataframe(filtered_df.style.format({ "Total Balance": "{:,.2f}","Total In Arrears Loans": "{:,.2f}" }) )
 
-def render_collections():
+def render_collections(coll_data):
     st.header("Collections and Demands")
     # initialize toggle state
-    coll_data = pd.DataFrame()
+    # coll_data = pd.DataFrame()
     st.markdown( """
             <style>
             div.stButton > button[kind="primary"] {background-color: #a1b586; color: white;}

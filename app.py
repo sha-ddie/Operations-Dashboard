@@ -7,7 +7,7 @@ import string
 import re
 import time
 import gspread
-import os 
+import json
 from google.oauth2.service_account import Credentials
 
 # ---------------- PAGE CONFIG ----------------
@@ -111,7 +111,8 @@ sidebar_button("📋 Collections Tracker", "collections")
 
 #------------- Reading Data--------------
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-creds = Credentials.from_service_account_file( os.environ.get("CREDENTIALS_KEY"), scopes=SCOPES)
+credentials_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS_JSON"])
+creds = Credentials.from_service_account_file( credentials_dict, scopes=SCOPES)
 
 #helper funstions
 def clean_columns(columns):

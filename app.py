@@ -242,7 +242,7 @@ def render_overview():
             # --- PAR conditional coloring ---
             .map(par_color, subset=["PAR"])  ) 
         # Display in Streamlit
-        st.dataframe( styled.hide(axis="index"), use_container_width=True,  height=250 )
+        st.dataframe( styled.hide(axis="index"), use_container_width=True,  height=280 )
 
         ## Branch Ageing OLB
         st.markdown("#### Ageing Summary")
@@ -258,7 +258,7 @@ def render_overview():
             # --- PAR conditional coloring ---
             .map(par_color, subset=["PAR"])   ) 
         # Display in Streamlit
-        st.dataframe( styled.hide(axis="index"), use_container_width=True,  height=300 )
+        st.dataframe( styled.hide(axis="index"), use_container_width=True,  height=310 )
 
         st.markdown("#### PAR Summary")
         branch_par = pd.pivot_table(df, index='Branch Code', columns = 'Category', values = 'Total Balance',aggfunc='sum', margins=True,margins_name='Total')\
@@ -274,7 +274,7 @@ def render_overview():
             # --- PAR conditional coloring ---
             .map(par_color, subset=["Total"]) )
         # Display in Streamlit
-        st.dataframe( styled1.hide(axis="index"), use_container_width=True,  height=300 )
+        st.dataframe( styled1.hide(axis="index"), use_container_width=True,  height=310 )
 
     st.markdown("#### Portfolio Data")
     # ----- Preview LS ----

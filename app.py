@@ -381,44 +381,36 @@ def render_collections():
             st.write("Enter file No to preview remarks")
         
     st.markdown("#### RO Collections Summary")
-    with st.expander("Preview Summary",icon="📋"):
-        ro_search_val = st.text_input("Enter RO Name", key="RO_search")
-        # getting relevant data
-        arrears_data = df.loc[df['Days in Arrears']>0,:].groupby("Member No").\
-                agg({ 'Member Name':'max' ,
-                      'Total Balance':"sum",
-                      'Total In Arrears Loans': "sum",
-                      'Days in Arrears': "max",
-                      'ROName Loans': 'max'}).reset_index()
-        arrears_data['Member No'] = pd.to_numeric(arrears_data['Member No'], errors='coerce')
+    # getting RO Arrears + collections comments data
+    arrears_data = df.loc[df['Days in Arrears']>0,:].groupby("Member No").\
+                agg({ 'Branch Code':'max', 'Member Name':'max' , 'Total Balance':"sum", 'Total In Arrears Loans': "sum",
+                      'Days in Arrears': "max", 'ROName Loans': 'max'}).reset_index()
+    arrears_data['Member No'] = pd.to_numeric(arrears_data['Member No'], errors='coerce')
         
-        remarks = coll_data.drop_duplicates(subset='File Number', keep = 'first')\
+    remarks = coll_data.drop_duplicates(subset='File Number', keep = 'first')\
                    .loc[:,['File Number',"Timestamp",'Outcomes','Officer Comments']].copy()
-        remarks['File Number'] = pd.to_numeric(remarks['File Number'], errors='coerce')
+    remarks['File Number'] = pd.to_numeric(remarks['File Number'], errors='coerce')
         
-        customer_data = arrears_data.merge( remarks, how="left",left_on = 'Member No', right_on = 'File Number' , )\
+    customer_data = arrears_data.merge( remarks, how="left",left_on = 'Member No', right_on = 'File Number' , )\
                                     .drop(columns='File Number').fillna(" ").fillna(" ")
-        customer_data['Timestamp'] =  pd.to_datetime(customer_data['Timestamp'], errors='coerce')\
+    customer_data['Timestamp'] =  pd.to_datetime(customer_data['Timestamp'], errors='coerce')\
                                     .dt.strftime('%d-%B-%Y').fillna(" ")
-
-        # filering data on search value
-        if ro_search_val: 
-            ro_names_list = [i.upper() for i in df['ROName Loans'].dropna().str.lower().unique()  if ro_search_val.lower() in i]
-            if not ro_names_list:
-                st.markdown(   """
-                <div style="width: 40%;background-color:#eb8888; padding:15px; border-radius:5px; color:White; ">
-                    RO Name not found </div>   """,    unsafe_allow_html=True)
-            else:
-                st.write("\n".join([f"- {item}" for item in ro_names_list]) ) 
-                if( len(set(ro_names_list))>1):
-                    st.warning("More than two names returned... search a unique name")
-                    # st.write(ro_names_list)
-                    return
-                
-                ro_name = ro_names_list[0]
-                cols = ['Member Name', 'Total Balance', 'Total In Arrears Loans', 'Days in Arrears', 'Timestamp', 'Outcomes', 'Officer Comments']
-                filtered_data = customer_data.loc [customer_data['ROName Loans'] == ro_name,cols]
-                st.dataframe(filtered_data.sort_values(by='Days in Arrears',ascending=True))
+    with st.expander("Preview Summary",icon="📋"):
+        col1, col2 = st.columns(2)
+        with col1:
+            ro_name = st.selectbox( "RO Name",options=["All"] + sorted(list(customer_data['ROName Loans'].dropna().unique()) ) )
+            if ro_name=="All": ro_name = customer_data['ROName Loans'].unique() 
+            else: ro_name= [ro_name]
+        with col2:
+            branch_filter = st.selectbox( "Branch Code", options=["All"] + list(customer_data["Branch Code"].dropna().unique()) )
+            if  branch_filter=="All": branch_filter = customer_data["Branch Code"].unique() 
+            else: branch_filter= [branch_filter]
+        
+        cols = ['Member Name', 'Total Balance', 'Total In Arrears Loans', 'Days in Arrears', 'Timestamp', 'Outcomes', 'Officer Comments']
+        filtered_data = customer_data.loc [ (customer_data['ROName Loans'].isin(ro_name)) &
+                                            (customer_data['Branch Code'].isin(branch_filter)),cols]\
+                                    .sort_values(by='Days in Arrears',ascending=True)
+        st.dataframe(filtered_data.style.format({ "Total Balance": "{:,.2f}","Total In Arrears Loans": "{:,.2f}" }))
 
 ## ..........End of Page Functions.........
 

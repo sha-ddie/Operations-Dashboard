@@ -129,8 +129,8 @@ def clean_columns(columns):
     return new_cols
 
 def par_color(val):
-    if val < 0.35: return "background-color: #b6f2c2"  # green
-    elif 0.35 <= val <= 0.4: return "background-color: #ffe08a"  # amber
+    if val < 0.18: return "background-color: #b6f2c2"  # green
+    elif 0.18 <= val <= 0.35: return "background-color: #ffe08a"  # amber
     else:  return "background-color: #ff9999"  # red
 
 @st.cache_data(ttl=18000) ## loan register data
@@ -144,6 +144,7 @@ def load_loan_register(_creds):
     df = pd.DataFrame(sheet.get_all_records()) # fetch all records of the specific sheet id
 
     df['Branch Code'] = df['Branch Code'].replace("KRK","RNG" )
+    df.loc[df['ROName Loans']=='JOHN NJIRI KURIA','Branch Code'] = 'RECOVERY'
     #creating Category column
     bins = [0, 1, 31, 61, 91, float("inf")]
     labels = ["Performing", "1-30", "31-60", "61-90","91&Above"]
@@ -381,7 +382,7 @@ def render_collections():
         
     st.markdown("#### RO Collections Summary")
     with st.expander("Preview Summary",icon="📋"):
-        ro_search_val = st.text_input("Search File No", key="RO_search")
+        ro_search_val = st.text_input("Enter RO Name", key="RO_search")
         # getting relevant data
         arrears_data = df.loc[df['Days in Arrears']>0,:].groupby("Member No").\
                 agg({ 'Member Name':'max' ,

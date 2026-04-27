@@ -301,7 +301,8 @@ def render_arrears():
         st.dataframe( styled2.hide(axis="index"), use_container_width=True,  height=600 )
 
     with st.spinner("Loading Arrears Data...."):
-        time.sleep(1)       
+        time.sleep(1)   
+        dff = df.loc[df['Days in Arrears']>0,cols] # only to display loans in arrears
         with st.expander("Preview Data",icon="📋"):
             col1, col2, col3 = st.columns(3)
             with col1:

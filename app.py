@@ -243,20 +243,8 @@ def render_overview():
         # Display in Streamlit
         st.dataframe( styled.hide(axis="index"), use_container_width=True,  height=250 )
 
-    st.markdown("#### Portfolio Data")
-    # ----- Preview LS ----
-    with st.spinner("Loading Loan Register Preview...."):
-        time.sleep(1)
-        with st.expander("Preview Loan Register",icon="📋"):
-            st.dataframe(df)
-
-
-def render_arrears():
-    st.header("Arrears Tracker")
-    with st.spinner("Loading Arrears Summary...."):
-        time.sleep(1)   
-        # df = data.loc[data['Days in Arrears']>0,cols]
-        st.write("Portfolio Ageing Summary")
+        ## Branch Ageing OLB
+        st.markdown("#### Ageing Summary")
         category_arrears = pd.pivot_table(df,columns ='Category' ,index ='Branch Code' , values ='Total Balance',aggfunc='sum',
                    fill_value=0,margins=True,margins_name="Total")
         category_arrears["PAR"] = category_arrears.apply(lambda x: (x['Total']-x['Performing'])/x['Total'] , axis=1 )
@@ -271,7 +259,7 @@ def render_arrears():
         # Display in Streamlit
         st.dataframe( styled.hide(axis="index"), use_container_width=True,  height=300 )
 
-        # st.markdown("#### Ageing PAR Summary")
+        st.markdown("#### PAR Summary")
         branch_par = pd.pivot_table(df, index='Branch Code', columns = 'Category', values = 'Total Balance',aggfunc='sum', margins=True,margins_name='Total')\
             .drop(columns='Performing' )\
             .apply(lambda x: x / x['Total']  ,axis=1)
@@ -287,14 +275,39 @@ def render_arrears():
         # Display in Streamlit
         st.dataframe( styled1.hide(axis="index"), use_container_width=True,  height=300 )
 
+    st.markdown("#### Portfolio Data")
+    # ----- Preview LS ----
+    with st.spinner("Loading Loan Register Preview...."):
+        time.sleep(1)
+        with st.expander("Preview Loan Register",icon="📋"):
+            st.dataframe(df)
+
+
+def render_arrears():
+    st.header("Arrears Tracker")
+    with st.spinner("Loading Arrears Summary...."):
+        time.sleep(1)   
+        st.markdown("#### RO Summary")
+        ro_par = pd.pivot_table(df, index='ROName Loans', columns = 'Category', values = 'Total Balance',aggfunc='sum', margins=True,margins_name='Total')
+        ro_par["PAR"] = ro_par.apply(lambda x: (x['Total']-x['Performing'])/x['Total'] , axis=1 )
+        ro_par = ro_par.drop(columns="Performing")[["Total",'PAR',"1-30", "31-60","61-90","91&Above"]]
+        styled2 = (
+            ro_par.style
+            # --- number formatting ---
+            .format({ "PAR": "{:.2%}", "1-30": "{:,.0f}", "31-60": "{:,.0f}", "61-90": "{:,.0f}","91&Above": "{:,.0f}","Total": "{:,.0f}" })
+            # --- PAR conditional coloring ---
+            .map(par_color, subset=["PAR"]) )
+        # Display in Streamlit
+        st.dataframe( styled2.hide(axis="index"), use_container_width=True,  height=600 )
+
     with st.spinner("Loading Arrears Data...."):
         time.sleep(1)       
         with st.expander("Preview Data",icon="📋"):
             col1, col2, col3 = st.columns(3)
             with col1:
-                search_val = st.text_input("Search Member No")
-                # if search_val: cust_filter = df.index[df.index.astype(str) == search_val]
-                # else: cust_filter = df.index.unique()
+                ro_name = st.selectbox( "RO Name",options=["All"] + list(df['ROName Loans'].dropna().unique()) )
+                if ro_name=="All": ro_name =df['ROName Loans'].unique() 
+                else: ro_name= [ro_name]
             with col2:
                 category_filter = st.selectbox( "Category",options=["All"] + list(df["Category"].dropna().unique()) )
                 if category_filter=="All": category_filter =df["Category"].unique() 
@@ -304,20 +317,15 @@ def render_arrears():
                 if  branch_filter=="All": branch_filter =df["Branch Code"].unique() 
                 else: branch_filter= [branch_filter]
             
-            # --- Apply filters ---
-            if search_val:
-                filtered_df = df[ (df['Member No'].astype(str) == search_val) &
-                    (df["Category"].isin(category_filter)) &
-                    (df["Branch Code"].isin(branch_filter)) ].sort_values(by =['Days in Arrears','Member Name'],ascending=True)
-            else:
-                filtered_df = df[
-                    (df["Category"].isin(category_filter)) &
-                    (df["Branch Code"].isin(branch_filter)) ].sort_values(by =['Days in Arrears','Member Name'],ascending=True)
+            # --- Apply filters dff
+            filtered_df = dff[ (dff['ROName Loans'].isin(ro_name) )&
+                    (dff["Category"].isin(category_filter)) &
+                    (dff["Branch Code"].isin(branch_filter)) ].sort_values(by =['Days in Arrears','Member Name'],ascending=True)
             st.dataframe(filtered_df.style.format({ "Total Balance": "{:,.2f}","Total In Arrears Loans": "{:,.2f}" }) )
 
 def render_collections():
     st.header("Collections and Demands")
-    # initialize toggle state
+    # initialize toggle state and session collections data
     if "coll_data" not in st.session_state:
         st.session_state.coll_data = pd.DataFrame()
     st.markdown( """
@@ -332,8 +340,10 @@ def render_collections():
             st.session_state.coll_data = load_collections_data(creds)
     # 4. Access the persistent data from session_state
     coll_data = st.session_state.coll_data    
-    
-    search_val = st.text_input("Search File No")
+
+    # customer details on loans summary table
+    cust_cols = ['Member Name', 'Loan No','Loan Type', 'Total Balance', 'Total In Arrears Loans', 'Days in Arrears']   
+    search_val = st.text_input("Search File No", key="file_search")
     if search_val: 
         search_val = str( search_val.rjust(4,"0"))
         df['Member No'] = df['Member No'].apply(lambda x: str(str(x).rjust(4,"0")) ) 
@@ -342,30 +352,14 @@ def render_collections():
                 <div style="width: 40%;background-color:#eb8888; padding:15px; border-radius:5px; color:White; ">
                     No such Active customer found </div>   """,    unsafe_allow_html=True )
             return
-        cust_name = df.loc[df['Member No']==search_val ,'Member Name'].values[0]
-        portfolio = df.loc[df['Member No']==search_val ,'Total Balance'].values[0]
-        arrears = df.loc[df['Member No']==search_val , 'Total In Arrears Loans'].values[0]
-        days =  df.loc[df['Member No']==search_val , 'Days in Arrears'].values[0]
-        
-        col1, col2, col3, col4 = st.columns([3, 2, 1, 1]) # setting up the columns
-        st.markdown(
-            """
-            <style>
-            [data-testid="stMetricLabel"] {
-                font-size: 25px !important; 
-            }
-            [data-testid="stMetricValue"] {
-                font-size: 20px !important;font-weight: bold;
-            }
-            </style>
-            """, unsafe_allow_html=True )
-        col1.metric("Name", cust_name)
-        col2.metric("Total Balance", f"{portfolio:,.0f}")
-        col3.metric("Total Arrears", f"{arrears:,.0f}")
-        col4.metric("Days in Arrears", f"{days:,.0f}")
+        else: 
+            customer_details = df.loc[ (df['Member No'] == search_val ),cust_cols ]
+            styled_table = ( customer_details.style.format({ "Total Balance": "{:,.0f}", "Total In Arrears Loans": "{:,.0f}" }) )
+            st.dataframe(styled_table)
+    else:  st.write("Enter file No to preview remarks")
+
             
-            # --- Apply filters --- coll_data
-    # st.write(coll_data.columns)    
+    # --- Filter Collections Data -----
     if coll_data.empty:
         st.markdown(
                 """
@@ -383,7 +377,48 @@ def render_collections():
             else:   st.dataframe(filtered_df)
         else: 
             st.write("Enter file No to preview remarks")
+        
+    st.markdown("#### RO Collections Summary")
+    with st.expander("Preview Summary",icon="📋"):
+        ro_search_val = st.text_input("Search File No", key="RO_search")
+        # getting relevant data
+        arrears_data = df.loc[df['Days in Arrears']>0,:].groupby("Member No").\
+                agg({ 'Member Name':'max' ,
+                      'Total Balance':"sum",
+                      'Total In Arrears Loans': "sum",
+                      'Days in Arrears': "max",
+                      'ROName Loans': 'max'}).reset_index()
+        arrears_data['Member No'] = pd.to_numeric(arrears_data['Member No'], errors='coerce')
+        
+        remarks = coll_data.drop_duplicates(subset='File Number', keep = 'first')\
+                   .loc[:,['File Number',"Timestamp",'Outcomes','Officer Comments']].copy()
+        remarks['File Number'] = pd.to_numeric(remarks['File Number'], errors='coerce')
+        
+        customer_data = arrears_data.merge( remarks, how="left",left_on = 'Member No', right_on = 'File Number' , )\
+                                    .drop(columns='File Number').fillna(" ").fillna(" ")
+        customer_data['Timestamp'] =  pd.to_datetime(customer_data['Timestamp'], errors='coerce')\
+                                    .dt.strftime('%d-%B-%Y').fillna(" ")
 
+        # filering data on search value
+        if ro_search_val: 
+            ro_names_list = [i.upper() for i in df['ROName Loans'].dropna().str.lower().unique()  if ro_search_val.lower() in i]
+            if not ro_names_list:
+                st.markdown(   """
+                <div style="width: 40%;background-color:#eb8888; padding:15px; border-radius:5px; color:White; ">
+                    RO Name not found </div>   """,    unsafe_allow_html=True)
+            else:
+                st.write("\n".join([f"- {item}" for item in ro_names_list]) ) 
+                if( len(set(ro_names_list))>1):
+                    st.warning("More than two names returned... search a unique name")
+                    # st.write(ro_names_list)
+                    return
+                
+                ro_name = ro_names_list[0]
+                cols = ['Member Name', 'Total Balance', 'Total In Arrears Loans', 'Days in Arrears', 'Timestamp', 'Outcomes', 'Officer Comments']
+                filtered_data = customer_data.loc [customer_data['ROName Loans'] == ro_name,cols]
+                st.dataframe(filtered_data.sort_values(by='Days in Arrears',ascending=True))
+
+## ..........End of Page Functions.........
 
 def filter_list():
     category_filter = st.multiselect("Category", df["Category"].dropna().unique())

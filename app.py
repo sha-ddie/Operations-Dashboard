@@ -133,7 +133,7 @@ def par_color(val):
     elif 0.18 <= val <= 0.35: return "background-color: #ffe08a"  # amber
     else:  return "background-color: #ff9999"  # red
 
-@st.cache_data(ttl=18000) ## loan register data
+@st.cache_data(ttl=1800) ## loan register data
 def load_loan_register(_creds):
     client = gspread.authorize(_creds) # authorize credentials
     sheet_key = "1DEKCaV3PaXcnAbK8ZoQa4ty7CzArmCG2zMsDrETVzYE"

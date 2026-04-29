@@ -178,10 +178,6 @@ def load_collections_data(_creds):
     
     return coll_data
 
-st.markdown( """ <style>   div.stButton > button[kind="primary"] {background-color: #a1b586; color: white;}
-            </style> """, unsafe_allow_html=True )
-if st.button("🔄 Refresh Loan Register", type="primary"):
-    load_loan_register.clear()
 with st.spinner("Loading Data...."):
     data = load_loan_register()
 
@@ -194,7 +190,13 @@ df = data.loc[data['Outstanding Principle Balance']>1,cols]
 
 # Define page rendering functions
 def render_overview():
-    st.header("Portfolio Report Summary")
+    st.markdown( """ <style>   div.stButton > button[kind="primary"] {background-color: #a1b586; color: white;}
+            </style> """, unsafe_allow_html=True )
+    col1, col2 = st.columns([5,1], vertical_alignment="center")
+    with col1: st.header("Portfolio Report Summary")
+    with col2:
+        if st.button("🔄 Refresh Loan Register", type="primary"):
+            load_loan_register.clear()
     if data.empty:
         st.warning("No data found.")
         return

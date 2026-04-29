@@ -134,8 +134,8 @@ def par_color(val):
     else:  return "background-color: #ff9999"  # red
 
 @st.cache_data(ttl=1800) ## loan register data
-def load_loan_register(_creds):
-    client = gspread.authorize(_creds) # authorize credentials
+def load_loan_register():
+    client = gspread.authorize(creds) # authorize credentials
     sheet_key = "1DEKCaV3PaXcnAbK8ZoQa4ty7CzArmCG2zMsDrETVzYE"
     # open google sheet
     spreadsheet = client.open_by_key(sheet_key)
@@ -177,7 +177,9 @@ def load_collections_data(_creds):
     coll_data = pd.concat([spl_loans, main_loans]).reset_index(drop=True).sort_values(by='Timestamp',ascending=False)
     
     return coll_data
-    
+
+if st.button("🔄 Refresh Loan Register", type="primary"):
+    load_loan_register.clear()
 with st.spinner("Loading Data...."):
     data = load_loan_register(creds)
 

@@ -178,10 +178,12 @@ def load_collections_data(_creds):
     
     return coll_data
 
+st.markdown( """ <style>   div.stButton > button[kind="primary"] {background-color: #a1b586; color: white;}
+            </style> """, unsafe_allow_html=True )
 if st.button("🔄 Refresh Loan Register", type="primary"):
     load_loan_register.clear()
 with st.spinner("Loading Data...."):
-    data = load_loan_register(creds)
+    data = load_loan_register()
 
 # global variables
 cols = ['Branch Code', 'Member No', 'Loan No', 'Member Name', 'Loan Type',
@@ -332,11 +334,9 @@ def render_collections():
     # initialize toggle state and session collections data
     if "coll_data" not in st.session_state:
         st.session_state.coll_data = pd.DataFrame()
-    st.markdown( """
-            <style>
-            div.stButton > button[kind="primary"] {background-color: #a1b586; color: white;}
+
+    st.markdown( """ <style>   div.stButton > button[kind="primary"] {background-color: #a1b586; color: white;}
             </style> """, unsafe_allow_html=True )
-    
     if st.button("Fetch Collection Remarks", type="primary"):
         with st.spinner("Loading Collections Data...."):
             time.sleep(1)

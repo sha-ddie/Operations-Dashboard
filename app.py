@@ -195,7 +195,7 @@ def render_overview():
     col1, col2 = st.columns([5,1], vertical_alignment="center")
     with col1: st.header("Portfolio Report Summary")
     with col2:
-        if st.button("🔄 Refresh Loan Register", type="primary"):
+        if st.button("🔄 Loan Register", type="primary"):
             load_loan_register.clear()
     if data.empty:
         st.warning("No data found.")

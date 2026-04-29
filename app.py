@@ -192,7 +192,7 @@ df = data.loc[data['Outstanding Principle Balance']>1,cols]
 def render_overview():
     st.markdown( """ <style>   div.stButton > button[kind="primary"] {background-color: #a1b586; color: white;}
             </style> """, unsafe_allow_html=True )
-    col1, col2 = st.columns([5,1], vertical_alignment="center")
+    col1, col2 = st.columns([5,2], vertical_alignment="center")
     with col1: st.header("Portfolio Report Summary")
     with col2:
         if st.button("🔄 Loan Register", type="primary"):

@@ -201,9 +201,6 @@ def render_overview():
         st.warning("No data found.")
         return
 
-    # dff = df.set_index("Member No")
-    col1,  = st.columns(1)
-    col1.metric("Email", st.user.email)
     # --- KPIs ---
     total_portfolio = df['Total Balance'].sum()
     total_arrears = df['Total In Arrears Loans'].sum()

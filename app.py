@@ -465,6 +465,8 @@ def main():
         with st.sidebar:
             st.title("Authentication")
             st.write("Click below to start:")
+            st.markdown( """ <style>   div.stButton > button[kind="primary"] {background-color: #a1b586; color: white;}
+            </style> """, unsafe_allow_html=True )
             if st.button("🚀 Log in with Google", type="primary", use_container_width=True):
                 st.login("google")
         return # STOP here so unauthorized users see nothing else

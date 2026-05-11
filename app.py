@@ -90,12 +90,12 @@ st.sidebar.title("Reports Menu")
 
 # Initialize session state
 if "page" not in st.session_state:
-    st.session_state.page = "overview"  # default page
+    st.session_state.page = "login"  # default page
 
 # Helper function to render styled buttons
-def sidebar_button(label, page_key):
-    if st.sidebar.button(label, use_container_width=True):
-        st.session_state.page = page_key
+# def sidebar_button(label, page_key):
+#     if st.sidebar.button(label, use_container_width=True):
+#         st.session_state.page = page_key
 # def sidebar_button(label, page_key):
 #     # Check if this button corresponds to the active page
 #     is_active = st.session_state.page == page_key
@@ -104,9 +104,9 @@ def sidebar_button(label, page_key):
 #         st.session_state.page = page_key
 
 # Sidebar buttons with persistent highlight
-sidebar_button("📊 Overview", "overview")
-sidebar_button("📈 Arrears Tracker", "arrears")
-sidebar_button("📋 Collections Tracker", "collections")
+# sidebar_button("📊 Overview", "overview")
+# sidebar_button("📈 Arrears Tracker", "arrears")
+# sidebar_button("📋 Collections Tracker", "collections")
 
 
 #------------- Reading Data--------------
@@ -178,26 +178,27 @@ def load_collections_data(_creds):
     
     return coll_data
 
-with st.spinner("Loading Data...."):
-    data = load_loan_register()
+# with st.spinner("Loading Data...."):
+    # data = load_loan_register()
 
 # global variables
-cols = ['Branch Code', 'Member No', 'Loan No', 'Member Name', 'Loan Type',
-            'Total Balance','Total In Arrears Loans', 'Days in Arrears', 'ROName Loans',"Category"]
-df = data.loc[data['Outstanding Principle Balance']>1,cols]
+# cols = ['Branch Code', 'Member No', 'Loan No', 'Member Name', 'Loan Type',
+#             'Total Balance','Total In Arrears Loans', 'Days in Arrears', 'ROName Loans',"Category"]
+# df = data.loc[data['Outstanding Principle Balance']>1,cols]
 
 #---------------- PAGE CONTENT ----------------
 
 # Define page rendering functions
-def render_overview():
+def render_overview(df):
     st.markdown( """ <style>   div.stButton > button[kind="primary"] {background-color: #a1b586; color: white;}
             </style> """, unsafe_allow_html=True )
     col1, col2 = st.columns([5,2], vertical_alignment="center")
     with col1: st.header("Portfolio Report Summary")
     with col2:
         if st.button("🔄 Loan Register", type="primary"):
-            load_loan_register.clear()
-    if data.empty:
+            st.cache_data.clear() # Clears all cached data
+            st.rerun()
+    if df.empty:
         st.warning("No data found.")
         return
 
@@ -289,7 +290,7 @@ def render_overview():
             st.dataframe(df)
 
 
-def render_arrears():
+def render_arrears(df):
     st.header("Arrears Tracker")
     with st.spinner("Loading Arrears Summary...."):
         time.sleep(1)   
@@ -308,7 +309,7 @@ def render_arrears():
 
     with st.spinner("Loading Arrears Data...."):
         time.sleep(1)   
-        dff = df.loc[df['Days in Arrears']>0,cols] # only to display loans in arrears
+        dff = df.loc[df['Days in Arrears']>0] # only to display loans in arrears
         with st.expander("Preview Data",icon="📋"):
             col1, col2, col3 = st.columns(3)
             with col1:
@@ -330,7 +331,7 @@ def render_arrears():
                     (dff["Branch Code"].isin(branch_filter)) ].sort_values(by =['Days in Arrears','Member Name'],ascending=True)
             st.dataframe(filtered_df.style.format({ "Total Balance": "{:,.2f}","Total In Arrears Loans": "{:,.2f}" }) )
 
-def render_collections():
+def render_collections(df):
     st.header("Collections and Demands")
     # initialize toggle state and session collections data
     if "coll_data" not in st.session_state:
@@ -415,24 +416,96 @@ def render_collections():
                                     .sort_values(by='Days in Arrears',ascending=True)
         st.dataframe(filtered_data.style.format({ "Total Balance": "{:,.2f}","Total In Arrears Loans": "{:,.2f}" }))
 
+def render_ro_page(df):
+    st.header("Officer Statistics")
+    st.write("RO Specific View")
+
+# --- LOGIN PAGE FUNCTION ---
+def login_page():
+    st.markdown("""
+        <div style="display:flex; align-items:center;">
+            <h1>WELCOME</h1>
+        </div>
+        <div style="width: 160px; background-color:#d9d204; padding:8px; border-radius:2px; color:black; font-weight:bold; margin-bottom:20px;">
+             Status: Not Logged In 
+        </div>
+        <style>
+            div.stButton > button[kind="primary"] {background-color: #a1b586; color: white;}
+        </style>
+    """, unsafe_allow_html=True)
+
+    if st.button("Log in with Google", type="primary"):
+        st.login("google")
+
+PAGE_MENU = {
+    "overview": "📊 Portfolio Overview",
+    "arrears": "📈 Arrears Tracker",
+    "collections": "📋 Collections & Demands",
+    "ro_stats": "👤 Officer Statistics"
+}
+
 ## ..........End of Page Functions.........
 
-def filter_list():
-    category_filter = st.multiselect("Category", df["Category"].dropna().unique())
-    branch_filter = st.multiselect("Branch Code", df["Branch Code"].dropna().unique())
-    loan_type_filter = st.multiselect("Loan Type", df["Loan Type"].dropna().unique())
-    ro_filter = st.multiselect("ROName Loans", df["ROName Loans"].dropna().unique())
 #------------- RUNNING PAGES --------------
-# Map page keys to functions
-pages = {
-    "overview": render_overview,
-    "arrears": render_arrears,
-    "collections": render_collections
-}
-       
-# Render selected page
-page_key = st.session_state.get("page")
-if page_key in pages:
-    pages[page_key]()  # Call the function for that page
 
+def get_user_role():
+    if not st.user.is_logged_in:
+        return None
+    user_roles_mapping = st.secrets.get("user_roles", {})
+    return user_roles_mapping.get(st.user.email, "viewer")
 
+def main():
+    # --- 1. AUTH CHECK ---
+    if not st.user.is_logged_in:
+        login_page()
+        return
+
+    # --- 2. ROLE & PERMISSIONS ---
+    role = get_user_role()
+    
+    # Define which keys each role can see
+    PAGE_ACCESS = {
+        "viewer": ["ro_stats"],
+        "editor": ["overview", "arrears", "collections", "ro_stats"]
+    }
+    
+    # Get allowed keys for this role
+    allowed_keys = PAGE_ACCESS.get(role, ["ro_stats"])
+    
+    # Create the pretty list for the sidebar radio
+    display_options = [PAGE_MENU[k] for k in allowed_keys]
+
+    # --- 3. SIDEBAR UI ---
+    st.sidebar.title(f"👤 {role.title()}")
+    st.sidebar.caption(f"User: {st.user.email}")
+    selection = st.sidebar.radio("Navigate", display_options)
+    if st.sidebar.button("Logout", use_container_width=True):
+        st.logout()
+
+    # --- 4. DATA LOADING ---
+    # Load data only once after login to keep the app snappy
+    with st.spinner("Refreshing Portfolio Data..."):
+        full_data = load_loan_register()
+        cols_to_use = [
+            'Branch Code', 'Member No', 'Loan No', 'Member Name', 'Loan Type',
+            'Total Balance','Total In Arrears Loans', 'Days in Arrears', 
+            'ROName Loans', "Category"
+        ]
+        # Filter for active loans
+        df = full_data.loc[full_data['Outstanding Principle Balance'] > 1, cols_to_use]
+
+    # --- 5. PAGE ROUTING ---
+    # Get the internal key (e.g., 'overview') from the display label
+    page_key = [k for k, v in PAGE_MENU.items() if v == selection][0]
+
+    # Map keys to your render functions
+    pages = {
+        "overview": render_overview,
+        "arrears": render_arrears,
+        "collections": render_collections,
+        "ro_stats": render_ro_page
+    }
+
+    # Call the selected function and pass the dataframe
+    if page_key in pages:
+        pages[page_key](df)

@@ -111,7 +111,14 @@ if "page" not in st.session_state:
 
 #------------- Reading Data--------------
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-credentials_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS_JSON"])
+# credentials_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS_JSON"])
+raw_creds = st.secrets["GOOGLE_CREDENTIALS_JSON"]
+if isinstance(raw_creds, str):
+    # If it's a string (Standard Cloud behavior), parse it as JSON
+    credentials_dict = json.loads(raw_creds)
+else:
+    # If it's already a dictionary (Local secrets.toml behavior), just use it
+    credentials_dict = dict(raw_creds)
 creds = Credentials.from_service_account_info( credentials_dict, scopes=SCOPES)
 
 #helper funstions

@@ -104,7 +104,7 @@ if "page" not in st.session_state:
 #         st.session_state.page = page_key
 
 # Sidebar buttons with persistent highlight
-# sidebar_button("📊 Overview", "overview")
+# sidebar_button("Login", "overview")
 # sidebar_button("📈 Arrears Tracker", "arrears")
 # sidebar_button("📋 Collections Tracker", "collections")
 
@@ -455,11 +455,19 @@ def get_user_role():
     return user_roles_mapping.get(st.user.email, "viewer")
 
 def main():
-    # --- 1. AUTH CHECK ---
+# --- 1. AUTH CHECK ---
     if not st.user.is_logged_in:
-        login_page()
-        return
-
+        # Clear/Simple Main Page Message
+        st.title("Welcome to the Portfolio Dashboard")
+        st.info("Please use the sidebar to log in and access your reports.")
+        
+        # Place the Login Button in the Sidebar
+        with st.sidebar:
+            st.title("Authentication")
+            st.write("Click below to start:")
+            if st.button("🚀 Log in with Google", type="primary", use_container_width=True):
+                st.login("google")
+        return # STOP here so unauthorized users see nothing else
     # --- 2. ROLE & PERMISSIONS ---
     role = get_user_role()
     
@@ -509,3 +517,6 @@ def main():
     # Call the selected function and pass the dataframe
     if page_key in pages:
         pages[page_key](df)
+        
+if __name__ == "__main__":
+    main()

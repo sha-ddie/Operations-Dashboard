@@ -2,5 +2,5 @@ streamlit>=1.44.0
 pandas>=2.2.3
 numpy>=1.26.4
 gspread>=6.1.4
-google-auth>=2.37.0v
+google-auth>=2.37.0
 Authlib>=1.3.2

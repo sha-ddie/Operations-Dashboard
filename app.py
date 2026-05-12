@@ -114,28 +114,37 @@ SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 # credentials_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS_JSON"])
 # raw_creds = st.secrets["GOOGLE_CREDENTIALS_JSON"]
 # --- 1. SECRETS DIAGNOSTIC ---
-if "GOOGLE_CREDENTIALS_JSON" not in st.secrets:
-    st.error(f"Missing Key! Available keys are: {list(st.secrets.keys())}")
-    st.stop() # Prevents the crash below
-
-# --- 2. SAFE LOADING ---
-raw_creds = st.secrets["GOOGLE_CREDENTIALS_JSON"]
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 try:
-    if isinstance(raw_creds, str):
-        credentials_dict = json.loads(raw_creds)
-    else:
-        # Handles case where TOML pre-parses it as a dict
-        credentials_dict = dict(raw_creds)
-    
-    # Fix newline characters in the private key
-    if "private_key" in credentials_dict:
-        credentials_dict["private_key"] = credentials_dict["private_key"].replace("\\n", "\n")
-
+    credentials_dict = dict(st.secrets["GOOGLE_CREDENTIALS_JSON"])
+    credentials_dict["private_key"] = (
+        credentials_dict["private_key"]
+        .replace("\\n", "\n")    )
+    creds = Credentials.from_service_account_info(  credentials_dict,    scopes=SCOPES    )
 except Exception as e:
-    st.error(f"Failed to parse credentials: {e}")
+    st.error(f"Google credentials error: {e}")
     st.stop()
 
-creds = Credentials.from_service_account_info( credentials_dict, scopes=SCOPES)
+# if "GOOGLE_CREDENTIALS_JSON" not in st.secrets:
+#     st.error(f"Missing Key! Available keys are: {list(st.secrets.keys())}")
+#     st.stop() # Prevents the crash below
+# # --- 2. SAFE LOADING ---
+# raw_creds = st.secrets["GOOGLE_CREDENTIALS_JSON"]
+# try:
+#     if isinstance(raw_creds, str):
+#         credentials_dict = json.loads(raw_creds)
+#     else:
+#         # Handles case where TOML pre-parses it as a dict
+#         credentials_dict = dict(raw_creds)
+    
+#     # Fix newline characters in the private key
+#     if "private_key" in credentials_dict:
+#         credentials_dict["private_key"] = credentials_dict["private_key"].replace("\\n", "\n")
+
+# except Exception as e:
+#     st.error(f"Failed to parse credentials: {e}")
+#     st.stop()
+# creds = Credentials.from_service_account_info( credentials_dict, scopes=SCOPES)
 
 #helper funstions
 def clean_columns(columns):
@@ -470,16 +479,23 @@ PAGE_MENU = {
 ## ..........End of Page Functions.........
 
 #------------- RUNNING PAGES --------------
-
+def get_current_user():
+    user = getattr(st, "user", None)
+    if user and user.is_logged_in:
+        return user
+    return None
 def get_user_role():
-    if not st.user.is_logged_in:
+    user = get_current_user()
+    if not user:
         return None
+
     user_roles_mapping = st.secrets.get("user_roles", {})
-    return user_roles_mapping.get(st.user.email, "viewer")
+    return user_roles_mapping.get(user.email, "viewer")
 
 def main():
 # --- 1. AUTH CHECK ---
-    if not st.user.is_logged_in:
+    user = get_current_user()
+    if not user:
         # Clear/Simple Main Page Message
         st.title("Welcome to the Portfolio Dashboard")
         st.info("Please use the sidebar to log in and access your reports.")
@@ -495,6 +511,11 @@ def main():
         return # STOP here so unauthorized users see nothing else
     # --- 2. ROLE & PERMISSIONS ---
     role = get_user_role()
+    if not role:
+        st.error("Access Denied: Your email is not registered in the system.")
+        if st.sidebar.button("Logout"):
+            st.logout()
+        return
     
     # Define which keys each role can see
     PAGE_ACCESS = {
@@ -510,22 +531,27 @@ def main():
 
     # --- 3. SIDEBAR UI ---
     st.sidebar.title(f"👤 {role.title()}")
-    st.sidebar.caption(f"User: {st.user.email}")
+    st.sidebar.caption(f"User: {user.email}")
     selection = st.sidebar.radio("Navigate", display_options)
     if st.sidebar.button("Logout", use_container_width=True):
         st.logout()
 
     # --- 4. DATA LOADING ---
     # Load data only once after login to keep the app snappy
-    with st.spinner("Refreshing Portfolio Data..."):
-        full_data = load_loan_register()
-        cols_to_use = [
-            'Branch Code', 'Member No', 'Loan No', 'Member Name', 'Loan Type',
-            'Total Balance','Total In Arrears Loans', 'Days in Arrears', 
-            'ROName Loans', "Category"
-        ]
-        # Filter for active loans
-        df = full_data.loc[full_data['Outstanding Principle Balance'] > 1, cols_to_use]
+    try:
+        with st.spinner("Refreshing Portfolio Data..."):
+            full_data = load_loan_register()
+            cols_to_use = [ 'Branch Code', 'Member No', 'Loan No', 'Member Name', 'Loan Type',
+                'Total Balance','Total In Arrears Loans', 'Days in Arrears',  'ROName Loans', "Category" ]
+            missing = [c for c in req_cols if c not in full_data.columns]
+            if missing:
+                st.error(f"Data Error: The following columns are missing from your Google Sheet: {missing}")
+                st.stop()
+            # Filter for active loans
+            df = full_data.loc[full_data['Outstanding Principle Balance'] > 1, cols_to_use]
+    except Exception as e:
+        st.error("Login successful, but failed to reach Google Sheets.")
+        return
 
     # --- 5. PAGE ROUTING ---
     # Get the internal key (e.g., 'overview') from the display label
@@ -541,7 +567,11 @@ def main():
 
     # Call the selected function and pass the dataframe
     if page_key in pages:
-        pages[page_key](df)
+        try:
+            pages[page_key](df)
+        except Exception as e:
+            st.error(f"Error rendering page '{page_key}': {e}")
+        # pages[page_key](df)
         
 if __name__ == "__main__":
     main()

@@ -473,7 +473,7 @@ PAGE_MENU = {
     "overview": "📊 Portfolio Overview",
     "arrears": "📈 Arrears Tracker",
     "collections": "📋 Collections & Demands",
-    "ro_stats": "👤 Officer Statistics"
+    "ro_stats": "👤 RO Statistics"
 }
 
 ## ..........End of Page Functions.........
@@ -551,6 +551,8 @@ def main():
             df = full_data.loc[full_data['Outstanding Principle Balance'] > 1, cols_to_use]
     except Exception as e:
         st.error("Login successful, but failed to reach Google Sheets.")
+        st.error(get_keys(st.secrets))
+        st.error(e)
         return
 
     # --- 5. PAGE ROUTING ---

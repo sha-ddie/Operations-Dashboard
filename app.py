@@ -551,8 +551,7 @@ def main():
             df = full_data.loc[full_data['Outstanding Principle Balance'] > 1, cols_to_use]
     except Exception as e:
         st.error("Login successful, but failed to reach Google Sheets.")
-        st.error(get_keys(st.secrets))
-        st.error(e)
+        st.write(get_keys(st.secrets))
         return
 
     # --- 5. PAGE ROUTING ---

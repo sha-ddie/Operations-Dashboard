@@ -492,6 +492,20 @@ def get_user_role():
     user_roles_mapping = st.secrets.get("user_roles", {})
     return user_roles_mapping.get(user.email, "viewer")
 
+def render_sidebar(user, role, display_options):
+    with st.sidebar:
+        st.title(f"👤 {role.title()} Role")
+        st.caption(f"User: {user.email}")
+        # Persist selected page
+        if "selected_page" not in st.session_state:
+            st.session_state.selected_page = display_options[0]
+        selection = st.radio( "Navigate",   display_options,   key="selected_page"  )
+        st.divider()
+        if st.button(  "Logout",  use_container_width=True ):
+            st.logout()
+    return selection
+
+
 def main():
 # --- 1. AUTH CHECK ---
     user = get_current_user()
@@ -530,11 +544,12 @@ def main():
     display_options = [PAGE_MENU[k] for k in allowed_keys]
 
     # --- 3. SIDEBAR UI ---
-    st.sidebar.title(f"👤 {role.title()}")
-    st.sidebar.caption(f"User: {user.email}")
-    selection = st.sidebar.radio("Navigate", display_options)
-    if st.sidebar.button("Logout", use_container_width=True):
-        st.logout()
+    # st.sidebar.title(f"👤 {role.title()}")
+    # st.sidebar.caption(f"User: {user.email}")
+    # selection = st.sidebar.radio("Navigate", display_options)
+    # if st.sidebar.button("Logout", use_container_width=True):
+        # st.logout()
+    selection = render_sidebar(   user, role,   display_options  )
 
     # --- 4. DATA LOADING ---
     # Load data only once after login to keep the app snappy
@@ -543,18 +558,22 @@ def main():
             full_data = load_loan_register()
             cols_to_use = [ 'Branch Code', 'Member No', 'Loan No', 'Member Name', 'Loan Type',
                 'Total Balance','Total In Arrears Loans', 'Days in Arrears',  'ROName Loans', "Category" ]
-            missing = [c for c in req_cols if c not in full_data.columns]
+            missing = [c for c in cols_to_use if c not in full_data.columns]
             if missing:
                 st.error(f"Data Error: The following columns are missing from your Google Sheet: {missing}")
                 st.stop()
             # Filter for active loans
             df = full_data.loc[full_data['Outstanding Principle Balance'] > 1, cols_to_use]
+            st.session_state.loan_df = df
+
+        # Reuse stored dataframe
+        df = st.session_state.loan_df
     except Exception as e:
         st.error("Login successful, but failed to reach Google Sheets.")
-        st.write(get_keys(st.secrets))
+        st.write(list(st.secrets.keys()))
         return
 
-    # --- 5. PAGE ROUTING ---
+    # --- 5. PAGE ROUTING ----
     # Get the internal key (e.g., 'overview') from the display label
     page_key = [k for k, v in PAGE_MENU.items() if v == selection][0]
 

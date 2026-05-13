@@ -1,7 +1,7 @@
 streamlit==1.45.1
 pandas==2.2.3
 numpy==1.26.4
-gspread==6.2.1
+gspread>=6.1.4
 google-auth==2.40.3
 Authlib==1.6.0
 httpx==0.28.1

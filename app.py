@@ -452,10 +452,10 @@ def get_user_role():
     if not user:
         return None, None 
     user_roles_mapping = st.secrets.get("user_roles", {})
-    email = getattr(user, "email", None)
+    # email = getattr(user, "email", None)
     # if not email:
         # return None, None
-    user_entry = user_roles_mapping.get(email)  
+    user_entry = user_roles_mapping.get(user.email)  
     # if not user_entry:
         # return None, None        
     role = user_entry.get("role")

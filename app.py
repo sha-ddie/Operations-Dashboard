@@ -125,7 +125,7 @@ def load_loan_register():
     df = pd.DataFrame(sheet.get_all_records())
         
     cols_to_use = ['Branch Code', 'Member No', 'Loan No', 'Member Name', 'Loan Type',
-                   'Total Balance','Total In Arrears Loans', 'Days in Arrears', 'ROName Loans', "Category"]
+                   'Total Balance','Total In Arrears Loans', 'Days in Arrears', 'ROName Loans']
     if not all(col in df.columns for col in cols_to_use):
         raise ValueError("Column mismatch in loan register data")   
 

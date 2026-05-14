@@ -123,7 +123,13 @@ def load_loan_register():
     worksheet_id = 1503994147
     sheet = spreadsheet.get_worksheet_by_id(worksheet_id)
     df = pd.DataFrame(sheet.get_all_records())
+        
+    cols_to_use = ['Branch Code', 'Member No', 'Loan No', 'Member Name', 'Loan Type',
+                   'Total Balance','Total In Arrears Loans', 'Days in Arrears', 'ROName Loans', "Category"]
+    if not all(col in df.columns for col in cols_to_use):
+        raise ValueError("Column mismatch in loan register data")   
 
+    df['Loan No'] = df['Loan No'].astype(str)
     df['Branch Code'] = df['Branch Code'].replace("KRK","RNG" )
     df.loc[df['ROName Loans']=='JOHN NJIRI KURIA','Branch Code'] = 'RECOVERY'
     
@@ -131,11 +137,6 @@ def load_loan_register():
     labels = ["Performing", "1-30", "31-60", "61-90","91&Above"]
     df["Category"] = pd.cut(df["Days in Arrears"], bins=bins, labels=labels, include_lowest=True, right=False)
 
-        # --- ADD FILTERING HERE ---
-    cols_to_use = ['Branch Code', 'Member No', 'Loan No', 'Member Name', 'Loan Type',
-                   'Total Balance','Total In Arrears Loans', 'Days in Arrears', 'ROName Loans', "Category"]
-    if not all(col in df.columns for col in cols_to_use):
-        raise ValueError("Column mismatch")   
     # Return the filtered dataframe directly
     return df.loc[df['Outstanding Principle Balance'] > 1, cols_to_use]
 

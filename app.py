@@ -448,15 +448,12 @@ def get_user_role():
     if not user:
         return None, None 
     user_roles_mapping = st.secrets.get("user_roles", {})
-    # email = getattr(user, "email", None)
-    # if not email:
-        # return None, None
     user_entry = user_roles_mapping.get(user.email)  
-    # if not user_entry:
-        # return None, None        
+    if not user_entry:
+        return None, None        
     role = user_entry.get("role")
     name = user_entry.get("name")
-    return role, name,email
+    return role, name
 
 def render_sidebar(name, role, display_options):
     with st.sidebar:
@@ -483,9 +480,8 @@ def main():
                 st.login("google")
         return
 
-    role, name ,email = get_user_role()
+    role, name = get_user_role()
     if not role:
-        st.write(f"Attributes ({role}) : {email}")
         st.error("Access Denied: Your email is not registered in the system.")
         if st.sidebar.button("Logout"): st.logout()
         return   

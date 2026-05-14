@@ -432,14 +432,29 @@ def invalid_login_page():
 def get_current_user():
     return getattr(st, "user", None)
 
+# def get_user_role():
+#     user = get_current_user()
+#     if not user:
+#         return None, None
+#     user_roles_mapping = st.secrets.get("user_roles", {})
+#     user_entry = user_roles_mapping.get(user.email)
+#     if not user_entry:
+#         return None, None
+#     role = user_entry.get("role")
+#     name = user_entry.get("name")
+#     return role, name
+
 def get_user_role():
     user = get_current_user()
     if not user:
-        return None, None
+        return None, None 
     user_roles_mapping = st.secrets.get("user_roles", {})
-    user_entry = user_roles_mapping.get(user.email)
-    if not user_entry:
+    email = getattr(user, "email", None)
+    if not email:
         return None, None
+    user_entry = user_roles_mapping.get(email)  
+    if not user_entry:
+        return None, None        
     role = user_entry.get("role")
     name = user_entry.get("name")
     return role, name

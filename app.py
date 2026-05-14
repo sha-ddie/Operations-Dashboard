@@ -74,8 +74,6 @@ except FileNotFoundError:
     logo_base64 = "" # Fallback if image missing
 
 # ---------------- CUSTOM HEADER ----------------
-current_time = datetime.now().strftime("%Y-%m-%d")
-
 logo_html = f'<img src="data:image/png;base64,{logo_base64}" alt="Logo">' if has_logo else ""
 st.markdown(f"""
 <div class="custom-header">
@@ -83,8 +81,6 @@ st.markdown(f"""
         {logo_html}
         <h1>SPRINGBOARD CAPITAL</h1>
     </div>
-    <div class="refresh-date">Last Refresh: {current_time}</div>
-</div>
 """, unsafe_allow_html=True)
 
 

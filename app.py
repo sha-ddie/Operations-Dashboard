@@ -5,7 +5,6 @@ import pandas as pd
 import numpy as np
 import string 
 import re
-import time
 import gspread
 import json
 from google.oauth2.service_account import Credentials
@@ -15,7 +14,8 @@ st.set_page_config(
     page_title="SPRINGBOARD CAPITAL",
     page_icon="📊",
     layout="wide",
-   initial_sidebar_state="expanded")
+    initial_sidebar_state="expanded")
+
 # ---------------- CUSTOM CSS ----------------
 st.markdown("""
 <style>
@@ -61,23 +61,26 @@ body, .stApp > .main {
 </style>
 """, unsafe_allow_html=True)
 
-
-
 # ---------------- LOCAL LOGO ----------------
-logo_path = "SBC_Logo.png"  # your local logo file
-
-# Convert local image to base64 for HTML <img>
-with open(logo_path, "rb") as f:
-    logo_bytes = f.read()
-logo_base64 = base64.b64encode(logo_bytes).decode()
+# Ensure you have SBC_Logo.png in the same directory
+try:
+    logo_path = "SBC_Logo.png"
+    with open(logo_path, "rb") as f:
+        logo_bytes = f.read()
+    logo_base64 = base64.b64encode(logo_bytes).decode()
+    has_logo = True
+except FileNotFoundError:
+    has_logo = False
+    logo_base64 = "" # Fallback if image missing
 
 # ---------------- CUSTOM HEADER ----------------
 current_time = datetime.now().strftime("%Y-%m-%d")
 
+logo_html = f'<img src="data:image/png;base64,{logo_base64}" alt="Logo">' if has_logo else ""
 st.markdown(f"""
 <div class="custom-header">
     <div style="display:flex; align-items:center;">
-        <img src="data:image/png;base64,{logo_base64}" alt="Logo">
+        {logo_html}
         <h1>SPRINGBOARD CAPITAL</h1>
     </div>
     <div class="refresh-date">Last Refresh: {current_time}</div>
@@ -85,68 +88,18 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 
-# ---------------- SIDEBAR ----------------
-st.sidebar.title("Reports Menu")
-
-# Initialize session state
-if "page" not in st.session_state:
-    st.session_state.page = "login"  # default page
-
-# Helper function to render styled buttons
-# def sidebar_button(label, page_key):
-#     if st.sidebar.button(label, use_container_width=True):
-#         st.session_state.page = page_key
-# def sidebar_button(label, page_key):
-#     # Check if this button corresponds to the active page
-#     is_active = st.session_state.page == page_key
-#     # Render the button
-#     if st.sidebar.button(label):
-#         st.session_state.page = page_key
-
-# Sidebar buttons with persistent highlight
-# sidebar_button("Login", "overview")
-# sidebar_button("📈 Arrears Tracker", "arrears")
-# sidebar_button("📋 Collections Tracker", "collections")
-
-
-#------------- Reading Data--------------
+# ---------------- AUTH & CREDENTIALS SETUP ----------------
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-# credentials_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS_JSON"])
-# raw_creds = st.secrets["GOOGLE_CREDENTIALS_JSON"]
-# --- 1. SECRETS DIAGNOSTIC ---
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+
 try:
     credentials_dict = dict(st.secrets["GOOGLE_CREDENTIALS_JSON"])
-    credentials_dict["private_key"] = (
-        credentials_dict["private_key"]
-        .replace("\\n", "\n")    )
-    creds = Credentials.from_service_account_info(  credentials_dict,    scopes=SCOPES    )
+    credentials_dict["private_key"] = credentials_dict["private_key"].replace("\\n", "\n")
+    creds = Credentials.from_service_account_info(credentials_dict, scopes=SCOPES)
 except Exception as e:
     st.error(f"Google credentials error: {e}")
     st.stop()
 
-# if "GOOGLE_CREDENTIALS_JSON" not in st.secrets:
-#     st.error(f"Missing Key! Available keys are: {list(st.secrets.keys())}")
-#     st.stop() # Prevents the crash below
-# # --- 2. SAFE LOADING ---
-# raw_creds = st.secrets["GOOGLE_CREDENTIALS_JSON"]
-# try:
-#     if isinstance(raw_creds, str):
-#         credentials_dict = json.loads(raw_creds)
-#     else:
-#         # Handles case where TOML pre-parses it as a dict
-#         credentials_dict = dict(raw_creds)
-    
-#     # Fix newline characters in the private key
-#     if "private_key" in credentials_dict:
-#         credentials_dict["private_key"] = credentials_dict["private_key"].replace("\\n", "\n")
-
-# except Exception as e:
-#     st.error(f"Failed to parse credentials: {e}")
-#     st.stop()
-# creds = Credentials.from_service_account_info( credentials_dict, scopes=SCOPES)
-
-#helper funstions
+# ---------------- HELPER FUNCTIONS ----------------
 def clean_columns(columns):
     seen = {};   new_cols = []
     for col in columns:
@@ -156,95 +109,129 @@ def clean_columns(columns):
         else:
             seen[col] = 1
             new_cols.append(col)
-    new_cols =  [ re.sub(r"[^\w\s]", "", col).strip() for col in new_cols]
-    
+    new_cols = [ re.sub(r"[^\w\s]", "", col).strip() for col in new_cols]
     return new_cols
 
 def par_color(val):
-    if val < 0.18: return "background-color: #b6f2c2"  # green
-    elif 0.18 <= val <= 0.35: return "background-color: #ffe08a"  # amber
-    else:  return "background-color: #ff9999"  # red
+    if val < 0.18: return "background-color: #b6f2c2"
+    elif 0.18 <= val <= 0.35: return "background-color: #ffe08a"
+    else:  return "background-color: #ff9999"
 
-@st.cache_data(ttl=1800) ## loan register data
+# ---------------- DATA LOADING & PROCESSING ----------------
+
+@st.cache_data(ttl=1800) 
 def load_loan_register():
-    client = gspread.authorize(creds) # authorize credentials
+    client = gspread.authorize(creds)
     sheet_key = "1DEKCaV3PaXcnAbK8ZoQa4ty7CzArmCG2zMsDrETVzYE"
-    # open google sheet
     spreadsheet = client.open_by_key(sheet_key)
     worksheet_id = 1503994147
     sheet = spreadsheet.get_worksheet_by_id(worksheet_id)
-    df = pd.DataFrame(sheet.get_all_records()) # fetch all records of the specific sheet id
+    df = pd.DataFrame(sheet.get_all_records())
 
     df['Branch Code'] = df['Branch Code'].replace("KRK","RNG" )
     df.loc[df['ROName Loans']=='JOHN NJIRI KURIA','Branch Code'] = 'RECOVERY'
-    #creating Category column
+    
     bins = [0, 1, 31, 61, 91, float("inf")]
     labels = ["Performing", "1-30", "31-60", "61-90","91&Above"]
-    df["Category"] = pd.cut( df["Days in Arrears"], bins=bins, labels=labels, include_lowest=True ,right=False)
-    return df
+    df["Category"] = pd.cut(df["Days in Arrears"], bins=bins, labels=labels, include_lowest=True, right=False)
 
-@st.cache_data(ttl=600)  ## collections data
+        # --- ADD FILTERING HERE ---
+    cols_to_use = ['Branch Code', 'Member No', 'Loan No', 'Member Name', 'Loan Type',
+                   'Total Balance','Total In Arrears Loans', 'Days in Arrears', 'ROName Loans', "Category"]
+    if not all(col in df.columns for col in cols_to_use):
+        raise ValueError("Column mismatch")   
+    # Return the filtered dataframe directly
+    return df.loc[df['Outstanding Principle Balance'] > 1, cols_to_use]
+
+@st.cache_data(ttl=600)
 def load_collections_data(_creds):
-    client = gspread.authorize(_creds)# authorize credentials
+    client = gspread.authorize(_creds)
     sheet_key = "1JIuHZ5VM4veoitH8yF8KnZ38qKn-QTbPTqUJmO5b6t8"
-    # open google sheet
     spreadsheet = client.open_by_key(sheet_key)
     worksheet_id = 1428160709
-    sheet = spreadsheet.get_worksheet_by_id(worksheet_id)  # fetch all records of the specific sheet id
+    sheet = spreadsheet.get_worksheet_by_id(worksheet_id)
     coll_data = pd.DataFrame(sheet.get_all_values())
 
-    # formarting data
     coll_data = coll_data.iloc[:, :31]
-    coll_data.columns = clean_columns (coll_data.iloc[0, 0:31] )
+    coll_data.columns = clean_columns(coll_data.iloc[0, 0:31])
     coll_data = coll_data.iloc[1:, 0:31]
     coll_data = coll_data.reset_index(drop=True)
     coll_data["Timestamp"] = pd.to_datetime(coll_data["Timestamp"],format="%m/%d/%Y %H:%M:%S")
     coll_data = coll_data[coll_data["Timestamp"] > "2025-01-01"]
     
-    # cleaning and removing unwanted columns
     cols2 = ['Timestamp', 'Staff Name', 'File Number','Loan Type', 'Officers Comments', 'Outcomes','Demand Letter Type', 'Delivery Date']
     spl_loans = coll_data.loc[coll_data['Loan Type']=="SpringHela", cols2].rename(columns={'Officers Comments':'Officer Comments'} )
     cols1 = ['Timestamp', 'Staff Name', 'File Number','Loan Type','Officer Comments', 'Action','Demand Letter Type', 'Delivery Date']
     main_loans = coll_data.loc[coll_data['Loan Type']=="Main Loan", cols1].rename(columns={'Action':'Outcomes'} )
     coll_data = pd.concat([spl_loans, main_loans]).reset_index(drop=True).sort_values(by='Timestamp',ascending=False)
-    
     return coll_data
 
-# with st.spinner("Loading Data...."):
-    # data = load_loan_register()
+# --- SOLUTION 2: CACHED PROCESSING FUNCTION ---
+# This function performs all the heavy pandas calculations. 
+# It is cached, so it only runs once when the data changes or cache expires.
+@st.cache_data(ttl=1800)
+def process_dashboard_data(df):
+    data = {}
 
-# global variables
-# cols = ['Branch Code', 'Member No', 'Loan No', 'Member Name', 'Loan Type',
-#             'Total Balance','Total In Arrears Loans', 'Days in Arrears', 'ROName Loans',"Category"]
-# df = data.loc[data['Outstanding Principle Balance']>1,cols]
+    # 1. Branch Statistics
+    data["branch_stats"] = df.groupby("Branch Code").apply(
+        lambda g: pd.Series({
+            "Customers": g['Member No'].nunique(),
+            "Portfolio": g['Total Balance'].sum(),
+            "Arrears Amount": g['Total In Arrears Loans'].sum(),
+            "PAR": (g.loc[g['Days in Arrears'] > 0, 'Total Balance'].sum() / g['Total Balance'].sum())
+        })
+    ).reset_index().sort_values("Portfolio", ascending=False)
 
-#---------------- PAGE CONTENT ----------------
+    # 2. Ageing Summary
+    category_arrears = pd.pivot_table(df, columns='Category', index='Branch Code', values='Total Balance', aggfunc='sum',
+                                      fill_value=0, margins=True, margins_name="Total")
+    category_arrears["PAR"] = category_arrears.apply(lambda x: (x['Total']-x['Performing'])/x['Total'], axis=1)
+    category_arrears.drop(columns="Performing", inplace=True)
+    data["ageing_summary"] = category_arrears
 
-# Define page rendering functions
-def render_overview(df):
+    # 3. PAR Summary
+    branch_par = pd.pivot_table(df, index='Branch Code', columns='Category', values='Total Balance', aggfunc='sum', margins=True, margins_name='Total')\
+        .drop(columns='Performing')\
+        .apply(lambda x: x / x['Total'], axis=1)
+    cols_to_sum = branch_par.columns.difference(["Total"])
+    branch_par["Total"] = branch_par[cols_to_sum].sum(axis=1)
+    data["par_summary"] = branch_par
+
+    # 4. RO Summary (for Arrears Page)
+    ro_par = pd.pivot_table(df, index='ROName Loans', columns='Category', values='Total Balance', aggfunc='sum', margins=True, margins_name='Total')
+    ro_par["PAR"] = ro_par.apply(lambda x: (x['Total']-x['Performing'])/x['Total'], axis=1)
+    ro_par = ro_par.drop(columns="Performing")[["Total",'PAR',"1-30", "31-60","61-90","91&Above"]]
+    data["ro_summary"] = ro_par
+
+    # 5. Arrears Aggregation (for Collections Page)
+    # Pre-calculate this so we don't have to groupby every time we click collections
+    data["arrears_agg"] = df.loc[df['Days in Arrears']>0,:].groupby("Member No").\
+                agg({ 'Branch Code':'max', 'Member Name':'max' , 'Total Balance':"sum", 'Total In Arrears Loans': "sum",
+                      'Days in Arrears': "max", 'ROName Loans': 'max'}).reset_index()
+    
+    return data
+
+# ---------------- PAGE RENDERING FUNCTIONS ----------------
+
+def render_overview(df, processed_data):
     st.markdown( """ <style>   div.stButton > button[kind="primary"] {background-color: #a1b586; color: white;}
             </style> """, unsafe_allow_html=True )
+    
     col1, col2 = st.columns([5,2], vertical_alignment="center")
     with col1: st.header("Portfolio Report Summary")
     with col2:
         if st.button("🔄 Loan Register", type="primary"):
-            st.cache_data.clear() # Clears all cached data
+            st.cache_data.clear()
             st.rerun()
-    if df.empty:
-        st.warning("No data found.")
-        return
 
     # --- KPIs ---
     total_portfolio = df['Total Balance'].sum()
     total_arrears = df['Total In Arrears Loans'].sum()
     non_performing = df.loc[df['Days in Arrears']>0, 'Total Balance'].sum()
-    par =  non_performing/ total_portfolio
+    par = non_performing / total_portfolio
 
     col1, col2, col3 = st.columns(3)
-
-    # col1.metric("Total Portfolio", f"{total_portfolio:,.0f}")
-    # col2.metric("Total Arrears", f"{total_arrears:,.0f}")
-    # col3.metric("PAR", f"{par:,.2%}")
     with col1:
         st.markdown("#### 💼 Portfolio")
         st.markdown(f"#### {total_portfolio:,.0f}")
@@ -257,341 +244,245 @@ def render_overview(df):
         st.markdown(f"#### {par:.2%}")
         st.caption(f"Non-Performing loan book: {non_performing/1_000_000:,.2f}M ")
 
-    # --- Branch Statistics ---
+    # --- Branch Statistics (Using Cached Data) ---
     st.markdown("#### Branch Summary")
-    with st.spinner("Loading Branch Summary...."):
-        time.sleep(1)
-        branch_stats = df.groupby("Branch Code").apply(
-            lambda g: pd.Series({
-                "Customers": g['Member No'].nunique(),
-                "Portfolio": g['Total Balance'].sum(),
-                "Arrears Amount": g['Total In Arrears Loans'].sum(),
-                "PAR": (g.loc[g['Days in Arrears'] > 0, 'Total Balance'].sum() / g['Total Balance'].sum())
-            })   ).reset_index()
-        
-        # Sort like a pivot table (risk view)
-        branch_stats = branch_stats.sort_values("Portfolio", ascending=False)
-        
-        # Styling Table (Excel-like)        
-        styled = (
-            branch_stats.style
-            # --- number formatting ---
-            .format({ "Customers": "{:,}", "Portfolio": "{:,.0f}", "Arrears Amount": "{:,.0f}", "PAR": "{:.2%}" })
-            # --- PAR conditional coloring ---
-            .map(par_color, subset=["PAR"])  ) 
-        # Display in Streamlit
-        st.dataframe( styled.hide(axis="index"), use_container_width=True,  height=280 )
+    branch_stats = processed_data["branch_stats"]
+    styled = (
+        branch_stats.style
+        .format({ "Customers": "{:,}", "Portfolio": "{:,.0f}", "Arrears Amount": "{:,.0f}", "PAR": "{:.2%}" })
+        .map(par_color, subset=["PAR"]) 
+    )
+    st.dataframe(styled.hide(axis="index"), use_container_width=True, height=280)
 
-        ## Branch Ageing OLB
-        st.markdown("#### Ageing Summary")
-        category_arrears = pd.pivot_table(df,columns ='Category' ,index ='Branch Code' , values ='Total Balance',aggfunc='sum',
-                   fill_value=0,margins=True,margins_name="Total")
-        category_arrears["PAR"] = category_arrears.apply(lambda x: (x['Total']-x['Performing'])/x['Total'] , axis=1 )
-        category_arrears.drop(columns="Performing",inplace=True )       
-        # Styling Table (Excel-like)        
-        styled = (
-            category_arrears.style
-            # --- number formatting ---
-            .format({ "1-30": "{:,.0f}", "31-60": "{:,.0f}", "61-90": "{:,.0f}","91&Above": "{:,.0f}","Total": "{:,.0f}", "PAR": "{:.2%}" })
-            # --- PAR conditional coloring ---
-            .map(par_color, subset=["PAR"])   ) 
-        # Display in Streamlit
-        st.dataframe( styled.hide(axis="index"), use_container_width=True,  height=310 )
+    # --- Ageing Summary (Using Cached Data) ---
+    st.markdown("#### Ageing Summary")
+    category_arrears = processed_data["ageing_summary"]
+    styled = (
+        category_arrears.style
+        .format({ "1-30": "{:,.0f}", "31-60": "{:,.0f}", "61-90": "{:,.0f}","91&Above": "{:,.0f}","Total": "{:,.0f}", "PAR": "{:.2%}" })
+        .map(par_color, subset=["PAR"]) 
+    )
+    st.dataframe(styled.hide(axis="index"), use_container_width=True, height=310)
 
-        st.markdown("#### PAR Summary")
-        branch_par = pd.pivot_table(df, index='Branch Code', columns = 'Category', values = 'Total Balance',aggfunc='sum', margins=True,margins_name='Total')\
-            .drop(columns='Performing' )\
-            .apply(lambda x: x / x['Total']  ,axis=1)
-        
-        cols_to_sum = branch_par.columns.difference(["Total"])
-        branch_par["Total"] = branch_par[cols_to_sum].sum(axis=1)
-        styled1 = (
-            branch_par.style
-            # --- number formatting ---
-            .format({ "1-30": "{:.2%}", "31-60": "{:.2%}", "61-90": "{:.2%}","91&Above": "{:.2%}","Total": "{:.2%}" })
-            # --- PAR conditional coloring ---
-            .map(par_color, subset=["Total"]) )
-        # Display in Streamlit
-        st.dataframe( styled1.hide(axis="index"), use_container_width=True,  height=310 )
+    # --- PAR Summary (Using Cached Data) ---
+    st.markdown("#### PAR Summary")
+    branch_par = processed_data["par_summary"]
+    styled1 = (
+        branch_par.style
+        .format({ "1-30": "{:.2%}", "31-60": "{:.2%}", "61-90": "{:.2%}","91&Above": "{:.2%}","Total": "{:.2%}" })
+        .map(par_color, subset=["Total"]) )
+    st.dataframe(styled1.hide(axis="index"), use_container_width=True, height=310)
 
     st.markdown("#### Portfolio Data")
-    # ----- Preview LS ----
-    with st.spinner("Loading Loan Register Preview...."):
-        time.sleep(1)
-        with st.expander("Preview Loan Register",icon="📋"):
-            st.dataframe(df)
+    with st.expander("Preview Loan Register", icon="📋"):
+        st.dataframe(df)
 
-
-def render_arrears(df):
+def render_arrears(df, ro_summary):
     st.header("Arrears Tracker")
-    with st.spinner("Loading Arrears Summary...."):
-        time.sleep(1)   
-        st.markdown("#### RO Summary")
-        ro_par = pd.pivot_table(df, index='ROName Loans', columns = 'Category', values = 'Total Balance',aggfunc='sum', margins=True,margins_name='Total')
-        ro_par["PAR"] = ro_par.apply(lambda x: (x['Total']-x['Performing'])/x['Total'] , axis=1 )
-        ro_par = ro_par.drop(columns="Performing")[["Total",'PAR',"1-30", "31-60","61-90","91&Above"]]
-        styled2 = (
-            ro_par.style
-            # --- number formatting ---
-            .format({ "PAR": "{:.2%}", "1-30": "{:,.0f}", "31-60": "{:,.0f}", "61-90": "{:,.0f}","91&Above": "{:,.0f}","Total": "{:,.0f}" })
-            # --- PAR conditional coloring ---
-            .map(par_color, subset=["PAR"]) )
-        # Display in Streamlit
-        st.dataframe( styled2.hide(axis="index"), use_container_width=True,  height=600 )
+    
+    st.markdown("#### RO Summary")
+    styled2 = (
+        ro_summary.style
+        .format({ "PAR": "{:.2%}", "1-30": "{:,.0f}", "31-60": "{:,.0f}", "61-90": "{:,.0f}","91&Above": "{:,.0f}","Total": "{:,.0f}" })
+        .map(par_color, subset=["PAR"]) )
+    st.dataframe(styled2.hide(axis="index"), use_container_width=True, height=600)
 
-    with st.spinner("Loading Arrears Data...."):
-        time.sleep(1)   
-        dff = df.loc[df['Days in Arrears']>0] # only to display loans in arrears
-        with st.expander("Preview Data",icon="📋"):
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                ro_name = st.selectbox( "RO Name",options=["All"] + list(df['ROName Loans'].dropna().unique()) )
-                if ro_name=="All": ro_name =df['ROName Loans'].unique() 
-                else: ro_name= [ro_name]
-            with col2:
-                category_filter = st.selectbox( "Category",options=["All"] + list(df["Category"].dropna().unique()) )
-                if category_filter=="All": category_filter =df["Category"].unique() 
-                else: category_filter= [category_filter]
-            with col3:
-                branch_filter = st.selectbox( "Branch Code", options=["All"] + list(df["Branch Code"].dropna().unique()) )
-                if  branch_filter=="All": branch_filter =df["Branch Code"].unique() 
-                else: branch_filter= [branch_filter]
-            
-            # --- Apply filters dff
-            filtered_df = dff[ (dff['ROName Loans'].isin(ro_name) )&
-                    (dff["Category"].isin(category_filter)) &
-                    (dff["Branch Code"].isin(branch_filter)) ].sort_values(by =['Days in Arrears','Member Name'],ascending=True)
-            st.dataframe(filtered_df.style.format({ "Total Balance": "{:,.2f}","Total In Arrears Loans": "{:,.2f}" }) )
+    st.markdown("#### Detailed Arrears Data")
+    dff = df.loc[df['Days in Arrears']>0]
+    with st.expander("Preview Data",icon="📋"):
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            ro_name = st.selectbox("RO Name", options=["All"] + list(df['ROName Loans'].dropna().unique()), key="arr_ro")
+            if ro_name=="All": ro_name = df['ROName Loans'].unique() 
+            else: ro_name = [ro_name]
+        with col2:
+            category_filter = st.selectbox("Category", options=["All"] + list(df["Category"].dropna().unique()), key="arr_cat")
+            if category_filter=="All": category_filter = df["Category"].unique() 
+            else: category_filter = [category_filter]
+        with col3:
+            branch_filter = st.selectbox("Branch Code", options=["All"] + list(df["Branch Code"].dropna().unique()), key="arr_br")
+            if  branch_filter=="All": branch_filter = df["Branch Code"].unique() 
+            else: branch_filter = [branch_filter]
+        
+        filtered_df = dff[(dff['ROName Loans'].isin(ro_name)) &
+                          (dff["Category"].isin(category_filter)) &
+                          (dff["Branch Code"].isin(branch_filter))].sort_values(by=['Days in Arrears','Member Name'], ascending=True)
+        st.dataframe(filtered_df.style.format({ "Total Balance": "{:,.2f}","Total In Arrears Loans": "{:,.2f}" }))
 
-def render_collections(df):
+def render_collections(df, arrears_agg):
     st.header("Collections and Demands")
-    # initialize toggle state and session collections data
     if "coll_data" not in st.session_state:
         st.session_state.coll_data = pd.DataFrame()
 
     st.markdown( """ <style>   div.stButton > button[kind="primary"] {background-color: #a1b586; color: white;}
             </style> """, unsafe_allow_html=True )
+    
     if st.button("Fetch Collection Remarks", type="primary"):
         with st.spinner("Loading Collections Data...."):
-            time.sleep(1)
-            # Load data into session_state, not local var
             st.session_state.coll_data = load_collections_data(creds)
-    # 4. Access the persistent data from session_state
+    
     coll_data = st.session_state.coll_data    
 
-    # customer details on loans summary table
+    # Customer Search
     cust_cols = ['Member Name', 'Loan No','Loan Type', 'Total Balance', 'Total In Arrears Loans', 'Days in Arrears']   
     search_val = st.text_input("Search File No", key="file_search")
+    
     if search_val: 
-        search_val = str( search_val.rjust(4,"0"))
-        df['Member No'] = df['Member No'].apply(lambda x: str(str(x).rjust(4,"0")) ) 
-        if search_val not in df['Member No'].unique():
-            st.markdown(   """
-                <div style="width: 40%;background-color:#eb8888; padding:15px; border-radius:5px; color:White; ">
-                    No such Active customer found </div>   """,    unsafe_allow_html=True )
+        search_val = str(search_val.rjust(4,"0"))
+        # Note: We copy df to avoid SettingWithCopyWarning on the main df if we modified it, 
+        # though here we just read.
+        if search_val not in df['Member No'].astype(str).unique():
+            st.markdown("""<div style="width: 40%;background-color:#eb8888; padding:15px; border-radius:5px; color:White;">No such Active customer found</div>""", unsafe_allow_html=True)
             return
         else: 
-            customer_details = df.loc[ (df['Member No'] == search_val ),cust_cols ]
-            styled_table = ( customer_details.style.format({ "Total Balance": "{:,.0f}", "Total In Arrears Loans": "{:,.0f}" }) )
+            customer_details = df.loc[df['Member No'].astype(str) == search_val, cust_cols]
+            styled_table = (customer_details.style.format({ "Total Balance": "{:,.0f}", "Total In Arrears Loans": "{:,.0f}" }))
             st.dataframe(styled_table)
-    else:  st.write("Enter file No to preview remarks")
-
+    else:  
+        st.write("Enter file No to preview remarks")
             
     # --- Filter Collections Data -----
     if coll_data.empty:
-        st.markdown(
-                """
-                <div style="width: 40%;background-color:#eb8888; padding:15px; border-radius:5px; color:White; font-weight: bold;">
-                    No data found ....Click Fetch remarks
-                </div>
-                """,    unsafe_allow_html=True )
-        # st.warning("No data found....click toogle to fetch remarks")
+        st.markdown("""<div style="width: 40%;background-color:#eb8888; padding:15px; border-radius:5px; color:White; font-weight: bold;">No data found ....Click Fetch remarks</div>""", unsafe_allow_html=True)
         return
+
     with st.expander("Preview Customer Print Out",icon="📋"):
         if search_val:
-            filtered_df = coll_data[ (coll_data['File Number'] == search_val) ]
+            filtered_df = coll_data[(coll_data['File Number'].astype(str) == search_val)]
             if filtered_df.empty: 
                 st.warning("No remarks found")
-            else:   st.dataframe(filtered_df)
+            else:   
+                st.dataframe(filtered_df)
         else: 
             st.write("Enter file No to preview remarks")
         
     st.markdown("#### RO Collections Summary")
-    # getting RO Arrears + collections comments data
-    arrears_data = df.loc[df['Days in Arrears']>0,:].groupby("Member No").\
-                agg({ 'Branch Code':'max', 'Member Name':'max' , 'Total Balance':"sum", 'Total In Arrears Loans': "sum",
-                      'Days in Arrears': "max", 'ROName Loans': 'max'}).reset_index()
+    
+    # Use the pre-calculated arrears_agg from cache
+    arrears_data = arrears_agg.copy()
     arrears_data['Member No'] = pd.to_numeric(arrears_data['Member No'], errors='coerce')
         
-    remarks = coll_data.drop_duplicates(subset='File Number', keep = 'first')\
-                   .loc[:,['File Number',"Timestamp",'Outcomes','Officer Comments']].copy()
+    # Process remarks (must run if coll_data changes, but coll_data is in session_state)
+    remarks = coll_data.drop_duplicates(subset='File Number', keep='first')\
+                       .loc[:,['File Number',"Timestamp",'Outcomes','Officer Comments']].copy()
     remarks['File Number'] = pd.to_numeric(remarks['File Number'], errors='coerce')
         
-    customer_data = arrears_data.merge( remarks, how="left",left_on = 'Member No', right_on = 'File Number' , )\
-                                    .drop(columns='File Number').fillna(" ").fillna(" ")
-    customer_data['Timestamp'] =  pd.to_datetime(customer_data['Timestamp'], errors='coerce')\
+    # Merge (Fast now because arrears_data is pre-aggregated)
+    customer_data = arrears_data.merge(remarks, how="left", left_on='Member No', right_on='File Number')\
+                                    .drop(columns='File Number').fillna(" ")
+    customer_data['Timestamp'] = pd.to_datetime(customer_data['Timestamp'], errors='coerce')\
                                     .dt.strftime('%d-%B-%Y').fillna(" ")
+    
     with st.expander("Preview Summary",icon="📋"):
         col1, col2 = st.columns(2)
         with col1:
-            ro_name = st.selectbox( "RO Name",options=["All"] + sorted(list(customer_data['ROName Loans'].dropna().unique()) ) )
+            ro_name = st.selectbox("RO Name", options=["All"] + sorted(list(customer_data['ROName Loans'].dropna().unique())), key="col_ro")
             if ro_name=="All": ro_name = customer_data['ROName Loans'].unique() 
-            else: ro_name= [ro_name]
+            else: ro_name = [ro_name]
         with col2:
-            branch_filter = st.selectbox( "Branch Code", options=["All"] + list(customer_data["Branch Code"].dropna().unique()) )
+            branch_filter = st.selectbox("Branch Code", options=["All"] + list(customer_data["Branch Code"].dropna().unique()), key="col_br")
             if  branch_filter=="All": branch_filter = customer_data["Branch Code"].unique() 
-            else: branch_filter= [branch_filter]
+            else: branch_filter = [branch_filter]
         
         cols = ['Member Name', 'Total Balance', 'Total In Arrears Loans', 'Days in Arrears', 'Timestamp', 'Outcomes', 'Officer Comments']
-        filtered_data = customer_data.loc [ (customer_data['ROName Loans'].isin(ro_name)) &
-                                            (customer_data['Branch Code'].isin(branch_filter)),cols]\
-                                    .sort_values(by='Days in Arrears',ascending=True)
-        st.dataframe(filtered_data.style.format({ "Total Balance": "{:,.2f}","Total In Arrears Loans": "{:,.2f}" }))
+        filtered_data = customer_data.loc[(customer_data['ROName Loans'].isin(ro_name)) &
+                                          (customer_data['Branch Code'].isin(branch_filter)), cols]\
+                                    .sort_values(by='Days in Arrears', ascending=True)
+        st.dataframe(filtered_data.style.format({ "Total Balance": "{:,.2f}","Total In Arrears Loans": "{:,.2f}"}))
 
-def render_ro_page(df):
+def render_ro_page():
     st.header("Officer Statistics")
     st.write("RO Specific View")
 
-# --- LOGIN PAGE FUNCTION ---
-def login_page():
-    st.markdown("""
-        <div style="display:flex; align-items:center;">
-            <h1>WELCOME</h1>
-        </div>
-        <div style="width: 160px; background-color:#d9d204; padding:8px; border-radius:2px; color:black; font-weight:bold; margin-bottom:20px;">
-             Status: Not Logged In 
-        </div>
-        <style>
-            div.stButton > button[kind="primary"] {background-color: #a1b586; color: white;}
-        </style>
-    """, unsafe_allow_html=True)
+# ---------------- MAIN APP LOGIC ----------------
 
-    if st.button("Log in with Google", type="primary"):
-        st.login("google")
-
-PAGE_MENU = {
-    "overview": "📊 Portfolio Overview",
-    "arrears": "📈 Arrears Tracker",
-    "collections": "📋 Collections & Demands",
-    "ro_stats": "👤 RO Statistics"
-}
-
-## ..........End of Page Functions.........
-
-#------------- RUNNING PAGES --------------
 def get_current_user():
     user = getattr(st, "user", None)
     if user and user.is_logged_in:
         return user
     return None
+
 def get_user_role():
     user = get_current_user()
-    if not user:
-        return None
-
+    if not user: return None
     user_roles_mapping = st.secrets.get("user_roles", {})
-    return user_roles_mapping.get(user.email, "viewer")
+    user_info = user_roles_mapping.get(user.email, {})
+    role = user_info.get("role", "none")
+    name = user_info.get("name", "Unknown User")
+    return role,name
 
-def render_sidebar(user, role, display_options):
+def render_sidebar(name, role, display_options):
     with st.sidebar:
         st.title(f"👤 {role.title()} Role")
-        st.caption(f"User: {user.email}")
-        # Persist selected page
+        st.caption(f"User: {name.title()}")
         if "selected_page" not in st.session_state:
             st.session_state.selected_page = display_options[0]
-        selection = st.radio( "Navigate",   display_options,   key="selected_page"  )
+        selection = st.radio("Navigate", display_options, key="selected_page")
         st.divider()
-        if st.button(  "Logout",  use_container_width=True ):
+        if st.button("Logout", use_container_width=True):
             st.logout()
     return selection
 
-
 def main():
-# --- 1. AUTH CHECK ---
     user = get_current_user()
     if not user:
-        # Clear/Simple Main Page Message
         st.title("Welcome to the Portfolio Dashboard")
         st.info("Please use the sidebar to log in and access your reports.")
-        
-        # Place the Login Button in the Sidebar
         with st.sidebar:
             st.title("Authentication")
             st.write("Click below to start:")
-            st.markdown( """ <style>   div.stButton > button[kind="primary"] {background-color: #a1b586; color: white;}
-            </style> """, unsafe_allow_html=True )
-            if st.button("🚀 Log in with Google", type="primary", use_container_width=True):
+            st.markdown(""" <style>   div.stButton > button[kind="primary"] {background-color: #a1b586; color: white;}</style> """, unsafe_allow_html=True)
+            if st.button("Log in with Google", type="primary", use_container_width=True):
                 st.login("google")
-        return # STOP here so unauthorized users see nothing else
-    # --- 2. ROLE & PERMISSIONS ---
-    role = get_user_role()
+        return
+
+    role, name  = get_user_role()
     if not role:
         st.error("Access Denied: Your email is not registered in the system.")
-        if st.sidebar.button("Logout"):
-            st.logout()
+        if st.sidebar.button("Logout"): st.logout()
         return
     
-    # Define which keys each role can see
     PAGE_ACCESS = {
-        "viewer": ["ro_stats"],
-        "editor": ["overview", "arrears", "collections", "ro_stats"]
+        "teams": ["ro_stats"],
+        "manager": ["overview", "arrears", "collections"],
+        "admin": ["overview", "arrears", "collections", "ro_stats"]
+    }
+    PAGE_MENU = {
+        "overview": "📊 Portfolio Overview",
+        "arrears": "📈 Arrears Tracker",
+        "collections": "📋 Collections & Demands",
+        "ro_stats": "👤 RO Statistics"
     }
     
-    # Get allowed keys for this role
     allowed_keys = PAGE_ACCESS.get(role, ["ro_stats"])
-    
-    # Create the pretty list for the sidebar radio
     display_options = [PAGE_MENU[k] for k in allowed_keys]
+    selection = render_sidebar(name, role, display_options)
 
-    # --- 3. SIDEBAR UI ---
-    # st.sidebar.title(f"👤 {role.title()}")
-    # st.sidebar.caption(f"User: {user.email}")
-    # selection = st.sidebar.radio("Navigate", display_options)
-    # if st.sidebar.button("Logout", use_container_width=True):
-        # st.logout()
-    selection = render_sidebar(   user, role,   display_options  )
-
-    # --- 4. DATA LOADING ---
-    # Load data only once after login to keep the app snappy
+    # --- LOAD DATA ---
     try:
+        # 1. Load Raw Data (Cached)
         with st.spinner("Refreshing Portfolio Data..."):
-            full_data = load_loan_register()
-            cols_to_use = [ 'Branch Code', 'Member No', 'Loan No', 'Member Name', 'Loan Type',
-                'Total Balance','Total In Arrears Loans', 'Days in Arrears',  'ROName Loans', "Category" ]
-            missing = [c for c in cols_to_use if c not in full_data.columns]
-            if missing:
-                st.error(f"Data Error: The following columns are missing from your Google Sheet: {missing}")
-                st.stop()
-            # Filter for active loans
-            df = full_data.loc[full_data['Outstanding Principle Balance'] > 1, cols_to_use]
+            df = load_loan_register()
             st.session_state.loan_df = df
+        # 2. Process summaries (Cached - The Optimization)
+        # This creates all the pivot tables and groupby objects instantly from cache
+        processed_data = process_dashboard_data(df)
 
-        # Reuse stored dataframe
-        df = st.session_state.loan_df
     except Exception as e:
         st.error("Login successful, but failed to reach Google Sheets.")
-        st.write(list(st.secrets.keys()))
         return
 
-    # --- 5. PAGE ROUTING ----
-    # Get the internal key (e.g., 'overview') from the display label
+    # --- PAGE ROUTING ----
     page_key = [k for k, v in PAGE_MENU.items() if v == selection][0]
 
-    # Map keys to your render functions
-    pages = {
-        "overview": render_overview,
-        "arrears": render_arrears,
-        "collections": render_collections,
-        "ro_stats": render_ro_page
-    }
+    if page_key == "overview":
+        render_overview(df, processed_data)
+    elif page_key == "arrears":
+        render_arrears(df, processed_data["ro_summary"])
+    elif page_key == "collections":
+        render_collections(df, processed_data["arrears_agg"])
+    elif page_key == "ro_stats":
+        render_ro_page()
 
-    # Call the selected function and pass the dataframe
-    if page_key in pages:
-        try:
-            pages[page_key](df)
-        except Exception as e:
-            st.error(f"Error rendering page '{page_key}': {e}")
-        # pages[page_key](df)
-        
 if __name__ == "__main__":
     main()

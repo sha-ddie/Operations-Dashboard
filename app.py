@@ -166,7 +166,7 @@ def load_collections_data(_creds):
     coll_data = pd.concat([spl_loans, main_loans]).reset_index(drop=True).sort_values(by='Timestamp',ascending=False)
     return coll_data
 
-# --- SOLUTION 2: CACHED PROCESSING FUNCTION ---
+# ---CACHED PROCESSING OUTPUT FUNCTIONS ---
 # This function performs all the heavy pandas calculations. 
 # It is cached, so it only runs once when the data changes or cache expires.
 @st.cache_data(ttl=1800)
@@ -174,38 +174,68 @@ def process_dashboard_data(df):
     data = {}
 
     # 1. Branch Statistics
-    data["branch_stats"] = df.groupby("Branch Code").apply(
+    # Fix: include_groups=False excludes the grouping key from the lambda function input
+    data["branch_stats"] = df.groupby("Branch Code", group_keys=False).apply(
         lambda g: pd.Series({
             "Customers": g['Member No'].nunique(),
             "Portfolio": g['Total Balance'].sum(),
             "Arrears Amount": g['Total In Arrears Loans'].sum(),
             "PAR": (g.loc[g['Days in Arrears'] > 0, 'Total Balance'].sum() / g['Total Balance'].sum())
-        })
+        }),
+        include_groups=False
     ).reset_index().sort_values("Portfolio", ascending=False)
 
     # 2. Ageing Summary
-    category_arrears = pd.pivot_table(df, columns='Category', index='Branch Code', values='Total Balance', aggfunc='sum',
-                                      fill_value=0, margins=True, margins_name="Total")
+    # Fix: observed=False retains the current behavior for categorical columns
+    category_arrears = pd.pivot_table(
+        df, 
+        columns='Category', 
+        index='Branch Code', 
+        values='Total Balance', 
+        aggfunc='sum',
+        fill_value=0, 
+        margins=True, 
+        margins_name="Total",
+        observed=False
+    )
     category_arrears["PAR"] = category_arrears.apply(lambda x: (x['Total']-x['Performing'])/x['Total'], axis=1)
     category_arrears.drop(columns="Performing", inplace=True)
     data["ageing_summary"] = category_arrears
 
     # 3. PAR Summary
-    branch_par = pd.pivot_table(df, index='Branch Code', columns='Category', values='Total Balance', aggfunc='sum', margins=True, margins_name='Total')\
-        .drop(columns='Performing')\
-        .apply(lambda x: x / x['Total'], axis=1)
+    # Fix: observed=False retains the current behavior for categorical columns
+    branch_par = pd.pivot_table(
+        df, 
+        index='Branch Code', 
+        columns='Category', 
+        values='Total Balance', 
+        aggfunc='sum', 
+        margins=True, 
+        margins_name='Total',
+        observed=False
+    ).drop(columns='Performing').apply(lambda x: x / x['Total'], axis=1)
+    
     cols_to_sum = branch_par.columns.difference(["Total"])
     branch_par["Total"] = branch_par[cols_to_sum].sum(axis=1)
     data["par_summary"] = branch_par
 
     # 4. RO Summary (for Arrears Page)
-    ro_par = pd.pivot_table(df, index='ROName Loans', columns='Category', values='Total Balance', aggfunc='sum', margins=True, margins_name='Total')
+    # Fix: observed=False retains the current behavior
+    ro_par = pd.pivot_table(
+        df, 
+        index='ROName Loans', 
+        columns='Category', 
+        values='Total Balance', 
+        aggfunc='sum', 
+        margins=True, 
+        margins_name='Total',
+        observed=False
+    )
     ro_par["PAR"] = ro_par.apply(lambda x: (x['Total']-x['Performing'])/x['Total'], axis=1)
     ro_par = ro_par.drop(columns="Performing")[["Total",'PAR',"1-30", "31-60","61-90","91&Above"]]
     data["ro_summary"] = ro_par
 
     # 5. Arrears Aggregation (for Collections Page)
-    # Pre-calculate this so we don't have to groupby every time we click collections
     data["arrears_agg"] = df.loc[df['Days in Arrears']>0,:].groupby("Member No").\
                 agg({ 'Branch Code':'max', 'Member Name':'max' , 'Total Balance':"sum", 'Total In Arrears Loans': "sum",
                       'Days in Arrears': "max", 'ROName Loans': 'max'}).reset_index()
@@ -393,28 +423,31 @@ def render_collections(df, arrears_agg):
 def render_ro_page():
     st.header("Officer Statistics")
     st.write("RO Specific View")
+def invalid_login_page():
+    st.header("Access Denied")
+    st.error(" Your email is not registered in the system.")
+
 
 # ---------------- MAIN APP LOGIC ----------------
-
 def get_current_user():
-    user = getattr(st, "user", None)
-    if user and user.is_logged_in:
-        return user
-    return None
+    return getattr(st, "user", None)
 
 def get_user_role():
     user = get_current_user()
-    if not user: return None
+    if not user:
+        return None, None
     user_roles_mapping = st.secrets.get("user_roles", {})
-    user_info = user_roles_mapping.get(user.email, {})
-    role = user_info.get("role", "none")
-    name = user_info.get("name", "Unknown User")
-    return role,name
+    user_entry = user_roles_mapping.get(user.email)
+    if not user_entry:
+        return None, None
+    role = user_entry.get("role")
+    name = user_entry.get("name")
+    return role, name
 
 def render_sidebar(name, role, display_options):
     with st.sidebar:
-        st.title(f"👤 {role.title()} Role")
-        st.caption(f"User: {name.title()}")
+        st.title(f"👤 {role.title() if role else 'Unknown'} Role")
+        st.caption(f"User: {name.title() if name else 'Unknown User'}")
         if "selected_page" not in st.session_state:
             st.session_state.selected_page = display_options[0]
         selection = st.radio("Navigate", display_options, key="selected_page")
@@ -440,8 +473,7 @@ def main():
     if not role:
         st.error("Access Denied: Your email is not registered in the system.")
         if st.sidebar.button("Logout"): st.logout()
-        return
-    
+        return   
     PAGE_ACCESS = {
         "teams": ["ro_stats"],
         "manager": ["overview", "arrears", "collections"],
@@ -453,11 +485,14 @@ def main():
         "collections": "📋 Collections & Demands",
         "ro_stats": "👤 RO Statistics"
     }
-    
-    allowed_keys = PAGE_ACCESS.get(role, ["ro_stats"])
+    allowed_keys = PAGE_ACCESS.get(role, [])
+    if not allowed_keys:
+        st.error(f"Access Denied: No permissions for role '{role}'.")
+        return
     display_options = [PAGE_MENU[k] for k in allowed_keys]
     selection = render_sidebar(name, role, display_options)
-
+    if not selection: return
+        
     # --- LOAD DATA ---
     try:
         # 1. Load Raw Data (Cached)

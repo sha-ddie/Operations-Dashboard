@@ -430,7 +430,10 @@ def invalid_login_page():
 
 # ---------------- MAIN APP LOGIC ----------------
 def get_current_user():
-    return getattr(st, "user", None)
+    user = getattr(st, "user", None)
+    if user and user.is_logged_in:
+        return user
+    return None
 
 # def get_user_role():
 #     user = get_current_user()

@@ -310,10 +310,10 @@ def render_overview(df, processed_data):
                           (df["Branch Code"].isin(branch_filter))].sort_values(by=['Days in Arrears','Member Name'], ascending=True)
         st.dataframe(filtered_df.style.format({ "Total Balance": "{:,.2f}","Total In Arrears Loans": "{:,.2f}" }))
 
-def render_arrears(df, ro_summary):
+def render_arrears(df, processed_data):
     st.markdown(  """  <div style="
             padding:5px 10px;  border-radius:5px; background-color:#caeceb;  border-left:6px solid #1f77b4;  margin-bottom:2px; width:500px;   ">
-                    <h2 style="margin:0; color:#1f77b4;">   ARREARS TRACKER  </h2>
+                    <h2 style="margin:0; color:#1f77b4;"> 📉  ARREARS TRACKER  </h2>
                         </div>  """,    unsafe_allow_html=True)
 
         # --- Ageing Summary (Using Cached Data) ---
@@ -629,10 +629,10 @@ def main():
         "admin": ["overview", "arrears", "collections", "ro_stats"]
     }
     PAGE_MENU = {
-        "overview": "📊 Portfolio Overview",
-        "arrears": "📈 Arrears Tracker",
-        "collections": "📋 Collections & Demands",
-        "ro_stats": "👤 RO Statistics"
+        "overview": "📊 Portfolio ",
+        "arrears": "Arrears Tracker",
+        "collections": "Collections & Demands",
+        "ro_stats": "RO Statistics"
     }
     allowed_keys = PAGE_ACCESS.get(role, [])
     if not allowed_keys:

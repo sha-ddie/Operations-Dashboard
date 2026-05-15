@@ -446,7 +446,7 @@ def render_collections(df, arrears_agg):
 def render_ro_page(name,df,arrears_agg):
     # st.header(f"Officer Statistics - {name.title()}") #f0f2f6
     st.markdown(    f""" <div style="  padding:5px;  border-radius:5px; background-color:#caeceb;  border-left:6px solid #1f77b4; margin-bottom:5px;    ">
-        <h2 style="margin:0; color:#1f77b4;">   👤 Officer Statistics — {name.title()}  </h2>  </div>  """,    unsafe_allow_html=True)
+        <h2 style="margin:0; color:#1f77b4;">   👤 Officer Statistics — {name.upper()}  </h2>  </div>  """,    unsafe_allow_html=True)
 
     # if passed name is not an ROs name the create a dropdown
     ro_names = sorted(list(df['ROName Loans'].dropna().unique()))
@@ -631,7 +631,7 @@ def main():
     PAGE_MENU = {
         "overview": "📊 Portfolio ",
         "arrears": "Arrears Tracker",
-        "collections": "Collections & Demands",
+        "collections": "Collections",
         "ro_stats": "RO Statistics"
     }
     allowed_keys = PAGE_ACCESS.get(role, [])

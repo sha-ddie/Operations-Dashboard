@@ -602,7 +602,7 @@ def render_sidebar(name, role, display_options):
         st.divider()
         if st.button("Logout", use_container_width=True):
             st.logout()
-    return selection
+    return st.session_state.selected_page
 
 def main():
     user = get_current_user()

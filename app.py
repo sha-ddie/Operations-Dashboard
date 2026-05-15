@@ -595,7 +595,10 @@ def render_sidebar(name, role, display_options):
         st.caption(f"User: {name.title() if name else 'Unknown User'}")
         if "selected_page" not in st.session_state:
             st.session_state.selected_page = display_options[0]
-        selection = st.button("Navigate", display_options, key="selected_page")
+        # selection = st.button("Navigate", display_options, key="selected_page")
+        for page in display_options:
+            if st.button(page, key=f"btn_{page}"):
+                st.session_state.selected_page = page
         st.divider()
         if st.button("Logout", use_container_width=True):
             st.logout()

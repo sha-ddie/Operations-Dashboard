@@ -768,7 +768,7 @@ def main():
     PAGE_ACCESS = {
         "teams": ["ro_stats"],
         "credit": [ "arrears", "collections"],
-        "it":["data_upload" ],
+        "finance":["data_upload" ],
         "manager": ["overview", "arrears", "collections"],        
         "admin": ["data_upload", "overview", "arrears", "collections", "ro_stats"]
     }

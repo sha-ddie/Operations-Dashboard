@@ -8,6 +8,8 @@ import re
 import gspread
 import json
 from google.oauth2.service_account import Credentials
+from gspread_dataframe import set_with_dataframe
+from dateutil.relativedelta import relativedelta
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -162,6 +164,90 @@ def load_collections_data(_creds):
     coll_data = pd.concat([spl_loans, main_loans]).reset_index(drop=True).sort_values(by='Timestamp',ascending=False)
     return coll_data
 
+def clean_loan_register(loan_register, customer_list):
+    #upload ls to google sheets
+    #index where column names start at
+    index_ = loan_register[loan_register.iloc[:,0] =="Branch Code"].index[0]
+    
+    # getting the data from row 10 downwards
+    loan_register = loan_register.iloc[10:,:].reset_index(drop=True)
+    
+    # setting column names
+    loan_register.columns = loan_register.iloc[0]
+    loan_register.drop(labels=0,axis=0, inplace = True)
+    loan_register.reset_index(drop=True, inplace = True)
+    
+    # picking columns which are not blanks
+    loan_register = loan_register.loc[:,loan_register.columns.notna()]
+    
+    # rows where customer_no and loan_no are not blank
+    loan_register = loan_register[~(loan_register['Member No'].isna()) & ~(loan_register['Loan No'].isna() )]
+    
+    # Formating customer numbers
+    loan_register["Member No"] = loan_register["Member No"].apply(lambda x: str(int(x)).rjust(10,"0"))
+    loan_register["Member No"] = loan_register["Member No"].apply(lambda x: str(int(x)).rjust(10,"0"))
+    customer_list["No."] = customer_list["No."].apply(lambda x: str(int(x)).rjust(10,"0"))
+    customer_list.drop_duplicates(subset='No.',inplace=True)
+    
+    # fetching ro names and Formarting
+    loan_register['ROName Loans'] = loan_register['Member No'].map(customer_list.set_index('No.')['Relationship Officer Name'])
+    loan_register['ROName Loans']  = loan_register['ROName Loans'].apply( lambda x: x if pd.isnull(x) else x.upper().strip() )
+    loan_register['ROName Loans'] = loan_register['ROName Loans'].replace({
+                                                                    'JEREMIAH MUSEE': 'JEREMIAH WAMBUA',
+                                                                    "MERCY NG'ANGA": "MERCY NJERI NG'ANG'A",
+                                                                    "CAROLYNE TANG'ALI": "CAROLYNE NANGILA TANG'ALI" })
+    loan_register['ROName Loans'] = loan_register['ROName Loans'].replace({
+                                        r'.*AMBOK.*': 'AMBOK ALICE ATIENO',
+                                        r'.*NGARI.*': 'BENSON KAMAU NGARI',
+                                        r'.*SIMON.*': 'SIMON NDIRANGU KIRAGU',
+                                        r'.*KATIE.*': 'STEPHEN KATIE KAGWIRIA',
+                                        r'.*KAVIVE.*': 'PHILIP KAVIVE'}, regex=True)
+    
+    # calculating correct days in arrears 
+    def days_with_arrears(disbursement_date,loan,days,arrears,next_repay):
+        disbursement_date = pd.to_datetime(disbursement_date)
+        # Current datetime
+        current_date = datetime.now()
+        #     print(current_date)
+        if days==0 and arrears>0:
+            if loan == '0019020035':
+                # Add 1 month 
+                new_date = disbursement_date + relativedelta(months=1)
+                return (current_date-new_date).days
+            else: return(current_date-next_repay).days - 1
+        else: return days  
+    
+    # cleaninr Days in arrears
+    loan_register['Days_in_Arrears'] = loan_register.apply(lambda x: \
+                                        days_with_arrears(x["Disbursement Date"],x['Loan No'],x["Days in Arrears"],\
+                                                         x["Total In Arrears Loans"], x["Next Repayment Date"]), axis =1 )
+    loan_register["Days in Arrears"] = loan_register["Days_in_Arrears"]
+    loan_register.drop(columns=['Days_in_Arrears'], inplace=True)
+    return loan_register
+
+
+def upload_loan_register( df):    
+    SCOPES = ["https://www.googleapis.com/auth/drive"]
+    # Load credentials from JSON key file
+    credentials_dict = dict(st.secrets["GOOGLE_CREDENTIALS_JSON"])
+    credentials_dict["private_key"] = credentials_dict["private_key"].replace("\\n", "\n")
+    creds = Credentials.from_service_account_info(credentials_dict, scopes=SCOPES)
+
+    # Authorize client
+    client = gspread.authorize(creds)
+    sheet_id = "1DEKCaV3PaXcnAbK8ZoQa4ty7CzArmCG2zMsDrETVzYE"
+    spreadsheet = client.open_by_key(sheet_id)
+    
+    # # Get "Loan Register" sheet data
+    worksheet_id = 1503994147
+    worksheet = spreadsheet.get_worksheet_by_id(worksheet_id)
+    # optional: clear existing data
+    worksheet.batch_clear(["A2:AC"])
+    
+    # write dataframe
+    set_with_dataframe( worksheet, df, row=2, col=1, include_column_header=False,allow_formulas=False)
+    
+
 # ---CACHED PROCESSING OUTPUT FUNCTIONS ---
 # This function performs all the heavy pandas calculations. 
 # It is cached, so it only runs once when the data changes or cache expires.
@@ -239,6 +325,63 @@ def process_dashboard_data(df):
     return data
 
 # ---------------- PAGE RENDERING FUNCTIONS ----------------
+
+def render_file_upload():
+    st.markdown(  """  <div style="
+                    padding:5px;  border-radius:5px; background-color:#caeceb;  border-left:6px solid #1f77b4;  margin-bottom:5px;    ">
+                    <h2 style="margin:0; color:#1f77b4;">  File and Data Uploads </h2>
+                        </div>  """,    unsafe_allow_html=True)
+    #----- Loan Register upload------
+    st.markdown("#### Loan Register")
+   # create uploader and limits the selectable files to specific extensionss
+    uploaded_loan_register = st.file_uploader( "Upload file  (Excel files only)", type=['xlsx'],  key='loan register' )
+    df_ls = None
+    if uploaded_loan_register is not None:  
+        # Handle Excel Files
+        if uploaded_loan_register.name.endswith('.xlsx'):
+            try:
+                df_ls =pd.read_excel(uploaded_loan_register)
+                st.success("File Uploaded Successfully!")
+            except Exception as e:
+                st.error(f"Error reading file: {e}")
+        else:
+            st.error(f"Upload correct file formart")
+
+    #----- Customer List upload------
+    st.markdown("#### Customer List")
+    # create uploader and limits the selectable files to specific extensions
+    uploaded_customer_list = st.file_uploader( "Upload file  (Excel files only)", type=['xlsx'], key='customer list' )
+    df_cl = None
+    if uploaded_customer_list is not None:  
+        # Handle Excel Files
+        if uploaded_customer_list.name.endswith('.xlsx'):
+            try:
+                df_cl =pd.read_excel(uploaded_customer_list)
+                st.success("File Uploaded Successfully!")
+            except Exception as e:
+                st.error(f"Error reading file: {e}")
+        else:
+            st.error(f"Upload correct file formart")
+
+    #----- Update/ write google sheet------
+    st.markdown( """ <style>   div.stButton > button[kind="primary"] {background-color: #a1b586; color: white;}
+            </style> """, unsafe_allow_html=True )
+    with st.expander("Update Loan Register", icon="📋"):
+        if (uploaded_customer_list is not None) and (uploaded_loan_register is not None):
+            if st.button("🔄 Data Upload", type="primary"):
+                try: 
+                    with st.spinner("Cleaning Data......"):
+                        df = clean_loan_register(df_ls,df_cl)
+                    with st.spinner("Uploading Data......"):
+                        upload_loan_register(df)
+                    st.success("Data Upload Successful")
+                except Exception as e:
+                    st.error(f"Error updating Loan Register: {e}")
+            else: st.error(f"Click Button to updating Loan Register")
+        else: 
+            if (uploaded_loan_register is None) : st.error(f"Upload Loan Register file to Complete this operation")
+            elif (uploaded_customer_list is None) : st.error(f"Upload Customer List file to Complete this operation")
+
 
 def render_overview(df, processed_data):
     st.markdown( """ <style>   div.stButton > button[kind="primary"] {background-color: #a1b586; color: white;}
@@ -625,10 +768,12 @@ def main():
     PAGE_ACCESS = {
         "teams": ["ro_stats"],
         "credit": [ "arrears", "collections"],
+        "it":["data_upload" ],
         "manager": ["overview", "arrears", "collections"],        
-        "admin": ["overview", "arrears", "collections", "ro_stats"]
+        "admin": ["data_upload", "overview", "arrears", "collections", "ro_stats"]
     }
     PAGE_MENU = {
+        "data_upload":"📂 Data Upload",
         "overview": "📊 Portfolio ",
         "arrears": "Arrears Tracker",
         "collections": "Collections",
@@ -666,7 +811,9 @@ def main():
     elif page_key == "collections":
         render_collections(df, processed_data["arrears_agg"])
     elif page_key == "ro_stats":
-            render_ro_page(name, df,processed_data["arrears_agg"])
+        render_ro_page(name, df,processed_data["arrears_agg"])
+    elif page_key == 'data_upload':
+        render_file_upload()
 
 if __name__ == "__main__":
     main()

@@ -6,3 +6,5 @@ google-auth==2.40.3
 Authlib==1.6.0
 httpx==0.28.1
 joserfc==1.0.4
+gspread-dataframe==3.3.1  
+python-dateutil

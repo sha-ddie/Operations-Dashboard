@@ -738,20 +738,6 @@ def get_user_role():
     name = user_entry.get("name")
     return role, name
 
-# def render_sidebar(name, role, display_options):
-#     with st.sidebar:
-#         st.title(f"👤 {role.title() if role else 'Unknown'} Role")
-#         st.caption(f"User: {name.title() if name else 'Unknown User'}")
-#         if "selected_page" not in st.session_state:
-#             st.session_state.selected_page = display_options[0]
-#         # selection = st.button("Navigate", display_options, key="selected_page")
-#         for page in display_options:
-#             if st.button(page, key=f"btn_{page}"):
-#                 st.session_state.selected_page = page
-#         st.divider()
-#         if st.button("Logout", use_container_width=True):
-#             st.logout()
-#     return st.session_state.selected_page
 def render_sidebar(name, role, display_options):
     with st.sidebar:
         st.title(f"👤 {role.title() if role else 'Unknown'} Role")
@@ -761,7 +747,8 @@ def render_sidebar(name, role, display_options):
             if st.session_state.selected_page in display_options:
                 default_index = display_options.index(st.session_state.selected_page)
 
-        selected = st.radio(label="", options=display_options, index=default_index, key="selected_page" )
+        selected = st.radio(label="Menu", options=display_options, index=default_index, 
+                            key="selected_page",label_visibility="collapsed" )
         st.divider()
         if st.button("Logout", use_container_width=True):
             st.logout()

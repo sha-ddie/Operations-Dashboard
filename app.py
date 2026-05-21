@@ -87,16 +87,24 @@ st.markdown(f"""
 
 
 # ---------------- AUTH & CREDENTIALS SETUP ----------------
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-
+READ_SCOPES = (  "https://www.googleapis.com/auth/spreadsheets.readonly",)
+WRITE_SCOPES = ( "https://www.googleapis.com/auth/drive",)
 try:
     credentials_dict = dict(st.secrets["GOOGLE_CREDENTIALS_JSON"])
     credentials_dict["private_key"] = credentials_dict["private_key"].replace("\\n", "\n")
-    creds = Credentials.from_service_account_info(credentials_dict, scopes=SCOPES)
+    creds = Credentials.from_service_account_info(credentials_dict, scopes=READ_SCOPES)
 except Exception as e:
     st.error(f"Google credentials error: {e}")
     st.stop()
-
+    
+@st.cache_resource
+def get_gspread_client(scopes_tuple):
+    credentials_dict = dict(st.secrets["GOOGLE_CREDENTIALS_JSON"])
+    credentials_dict["private_key"] = (credentials_dict["private_key"]   .replace("\\n", "\n")  )
+    
+    creds = Credentials.from_service_account_info(  credentials_dict,scopes=list(scopes_tuple)    )
+    return gspread.authorize(creds)
+    
 # ---------------- HELPER FUNCTIONS ----------------
 def clean_columns(columns):
     seen = {};   new_cols = []
@@ -116,10 +124,13 @@ def par_color(val):
     else:  return "background-color: #ff9999"
 
 # ---------------- DATA LOADING & PROCESSING ----------------
+@st.cache_data
+def read_excel_file(file):
+    return pd.read_excel(file, engine="openpyxl")
 
 @st.cache_data(ttl=7200) 
 def load_loan_register():
-    client = gspread.authorize(creds)
+    client = get_gspread_client(READ_SCOPES)
     sheet_key = "1DEKCaV3PaXcnAbK8ZoQa4ty7CzArmCG2zMsDrETVzYE"
     spreadsheet = client.open_by_key(sheet_key)
     worksheet_id = 1503994147
@@ -227,14 +238,8 @@ def clean_loan_register(loan_register, customer_list):
 
 
 def upload_loan_register( df):    
-    SCOPES = ["https://www.googleapis.com/auth/drive"]
-    # Load credentials from JSON key file
-    credentials_dict = dict(st.secrets["GOOGLE_CREDENTIALS_JSON"])
-    credentials_dict["private_key"] = credentials_dict["private_key"].replace("\\n", "\n")
-    creds = Credentials.from_service_account_info(credentials_dict, scopes=SCOPES)
-
     # Authorize client
-    client = gspread.authorize(creds)
+    client = get_gspread_client(WRITE_SCOPES)
     sheet_id = "1DEKCaV3PaXcnAbK8ZoQa4ty7CzArmCG2zMsDrETVzYE"
     spreadsheet = client.open_by_key(sheet_id)
     
@@ -340,7 +345,7 @@ def render_file_upload():
         # Handle Excel Files
         if uploaded_loan_register.name.endswith('.xlsx'):
             try:
-                df_ls =pd.read_excel(uploaded_loan_register)
+                df_ls = read_excel_file(uploaded_loan_register)
                 st.success("File Uploaded Successfully!")
             except Exception as e:
                 st.error(f"Error reading file: {e}")
@@ -356,7 +361,7 @@ def render_file_upload():
         # Handle Excel Files
         if uploaded_customer_list.name.endswith('.xlsx'):
             try:
-                df_cl =pd.read_excel(uploaded_customer_list)
+                df_cl =read_excel_file(uploaded_customer_list)
                 st.success("File Uploaded Successfully!")
             except Exception as e:
                 st.error(f"Error reading file: {e}")
@@ -394,14 +399,15 @@ def render_overview(df, processed_data):
                 <h2 style="margin:0; color:#1f77b4;">  PORTFOLIO REPORT SUMMARY </h2>   </div>  """,    unsafe_allow_html=True)
     with col2:
         if st.button("🔄 Loan Register", type="primary"):
-            st.cache_data.clear()
+            load_loan_register.clear()
+            process_dashboard_data.clear()
             st.rerun()
 
     # --- KPIs ---
     total_portfolio = df['Total Balance'].sum()
     total_arrears = df['Total In Arrears Loans'].sum()
     non_performing = df.loc[df['Days in Arrears']>0, 'Total Balance'].sum()
-    par = non_performing / total_portfolio
+    par = non_performing / total_portfolio if total_portfolio else 0
 
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -441,11 +447,11 @@ def render_overview(df, processed_data):
         # st.dataframe(df)
         col1, col2 = st.columns(2)
         with col1:
-            branch_filter = st.selectbox("Branch Code", options=["All"] + list(df["Branch Code"].dropna().unique()), key="arr_br")
+            branch_filter = st.selectbox("Branch Code", options=["All"] + list(df["Branch Code"].dropna().unique()), key="overview_arr_br")
             if  branch_filter=="All": branch_filter = df["Branch Code"].unique() 
             else: branch_filter = [branch_filter]
         with col2:
-            category_filter = st.selectbox("Category", options=["All"] + list(df["Category"].dropna().unique()), key="arr_cat")
+            category_filter = st.selectbox("Category", options=["All"] + list(df["Category"].dropna().unique()), key="overview_arr_cat")
             if category_filter=="All": category_filter = df["Category"].unique() 
             else: category_filter = [category_filter]
 
@@ -487,11 +493,11 @@ def render_arrears(df, processed_data):
             if ro_name=="All": ro_name = df['ROName Loans'].unique() 
             else: ro_name = [ro_name]
         with col2:
-            category_filter = st.selectbox("Category", options=["All"] + list(df["Category"].dropna().unique()), key="arr_cat")
+            category_filter = st.selectbox("Category", options=["All"] + list(df["Category"].dropna().unique()), key="arrears_arr_cat")
             if category_filter=="All": category_filter = df["Category"].unique() 
             else: category_filter = [category_filter]
         with col3:
-            branch_filter = st.selectbox("Branch Code", options=["All"] + list(df["Branch Code"].dropna().unique()), key="arr_br")
+            branch_filter = st.selectbox("Branch Code", options=["All"] + list(df["Branch Code"].dropna().unique()), key="arrears_arr_br")
             if  branch_filter=="All": branch_filter = df["Branch Code"].unique() 
             else: branch_filter = [branch_filter]
         
@@ -572,11 +578,11 @@ def render_collections(df, arrears_agg):
     with st.expander("Preview Summary",icon="📋"):
         col1, col2 = st.columns(2)
         with col1:
-            ro_name = st.selectbox("RO Name", options=["All"] + sorted(list(customer_data['ROName Loans'].dropna().unique())), key="col_ro")
+            ro_name = st.selectbox("RO Name", options=["All"] + sorted(list(customer_data['ROName Loans'].dropna().unique())), key="ro_search")
             if ro_name=="All": ro_name = customer_data['ROName Loans'].unique() 
             else: ro_name = [ro_name]
         with col2:
-            branch_filter = st.selectbox("Branch Code", options=["All"] + list(customer_data["Branch Code"].dropna().unique()), key="col_br")
+            branch_filter = st.selectbox("Branch Code", options=["All"] + list(customer_data["Branch Code"].dropna().unique()), key="branch_search")
             if  branch_filter=="All": branch_filter = customer_data["Branch Code"].unique() 
             else: branch_filter = [branch_filter]
         
@@ -629,7 +635,7 @@ def render_ro_page(name,df,arrears_agg):
         # st.dataframe(df)
         col1, = st.columns(1)
         with col1:
-            category_filter = st.selectbox("Category", options=["All"] + list(df["Category"].dropna().unique()), key="arr_cat")
+            category_filter = st.selectbox("Category", options=["All"] + list(df["Category"].dropna().unique()), key="ro_arr_cat")
             if category_filter=="All": category_filter = df["Category"].unique() 
             else: category_filter = [category_filter]
 
@@ -732,20 +738,35 @@ def get_user_role():
     name = user_entry.get("name")
     return role, name
 
+# def render_sidebar(name, role, display_options):
+#     with st.sidebar:
+#         st.title(f"👤 {role.title() if role else 'Unknown'} Role")
+#         st.caption(f"User: {name.title() if name else 'Unknown User'}")
+#         if "selected_page" not in st.session_state:
+#             st.session_state.selected_page = display_options[0]
+#         # selection = st.button("Navigate", display_options, key="selected_page")
+#         for page in display_options:
+#             if st.button(page, key=f"btn_{page}"):
+#                 st.session_state.selected_page = page
+#         st.divider()
+#         if st.button("Logout", use_container_width=True):
+#             st.logout()
+#     return st.session_state.selected_page
 def render_sidebar(name, role, display_options):
     with st.sidebar:
         st.title(f"👤 {role.title() if role else 'Unknown'} Role")
         st.caption(f"User: {name.title() if name else 'Unknown User'}")
-        if "selected_page" not in st.session_state:
-            st.session_state.selected_page = display_options[0]
-        # selection = st.button("Navigate", display_options, key="selected_page")
-        for page in display_options:
-            if st.button(page, key=f"btn_{page}"):
-                st.session_state.selected_page = page
+        default_index = 0
+        if "selected_page" in st.session_state:
+            if st.session_state.selected_page in display_options:
+                default_index = display_options.index(st.session_state.selected_page)
+
+        selected = st.radio(label="", options=display_options, index=default_index, key="selected_page" )
         st.divider()
         if st.button("Logout", use_container_width=True):
             st.logout()
-    return st.session_state.selected_page
+    return selected
+
 
 def main():
     user = get_current_user()
@@ -790,15 +811,17 @@ def main():
     # --- LOAD DATA ---
     try:
         # 1. Load Raw Data (Cached)
-        with st.spinner("Refreshing Portfolio Data..."):
-            df = load_loan_register()
-            st.session_state.loan_df = df
-        # 2. Process summaries (Cached - The Optimization)
-        # This creates all the pivot tables and groupby objects instantly from cache
-        processed_data = process_dashboard_data(df)
-
+        if "loan_df" not in st.session_state:
+            with st.spinner("Refreshing Portfolio Data..."):
+                st.session_state.loan_df = load_loan_register()
+       # This creates all the pivot tables and groupby objects instantly from cache       
+        if "processed_data" not in st.session_state:
+            with st.spinner("Processing Dashboard Data..."):
+                st.session_state.processed_data = process_dashboard_data(st.session_state.loan_df)    
+        df = st.session_state.loan_df
+        processed_data = st.session_state.processed_data
     except Exception as e:
-        st.error("Login successful, but failed to reach Google Sheets.")
+        st.error(f"Login successful, but failed to reach Google Sheets: {e}"")
         return
 
     # --- PAGE ROUTING ----

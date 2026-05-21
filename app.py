@@ -821,7 +821,7 @@ def main():
         df = st.session_state.loan_df
         processed_data = st.session_state.processed_data
     except Exception as e:
-        st.error(f"Login successful, but failed to reach Google Sheets: {e}"")
+        st.error(f"Login successful, but failed to reach Google Sheets: {e}")
         return
 
     # --- PAGE ROUTING ----

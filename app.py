@@ -442,7 +442,7 @@ def render_overview(df, processed_data):
     non_performing = df.loc[df['Days in Arrears']>0, 'Total Balance'].sum()
     par = non_performing / total_portfolio if total_portfolio else 0
 
-    col1, col2, col3 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown("#### 💼 Portfolio")
         st.markdown(f"#### {total_portfolio:,.0f}")

@@ -648,10 +648,10 @@ def render_ro_page(name,df,arrears_agg,dis_tat):
 
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
-        st.markdown("#### 👤 Customers")
+        st.markdown("#### 👤Customers")
         st.markdown(f"#### {customers_count:,.0f}")
     with col2:
-        st.markdown("#### 💼 Portfolio")
+        st.markdown("#### 💼Portfolio")
         st.markdown(f"#### {total_portfolio:,.0f}")
     with col3:
         st.markdown("#### 💰Disbursment")

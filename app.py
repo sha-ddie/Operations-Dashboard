@@ -152,6 +152,39 @@ def load_loan_register():
     # Return the filtered dataframe directly
     return df.loc[df['Outstanding Principle Balance'] > 1, cols_to_use]
 
+
+@st.cache_data(ttl=7200) 
+def load_disbursements(data):
+    client = get_gspread_client(READ_SCOPES)
+    sheet_key = "1if6aSMKJKAYkXIruzqCgMZ_E5ybC2ivc2a7KOspr5NQ"
+    spreadsheet = client.open_by_key(sheet_key)
+    worksheet_id = 385373648 
+    values =  spreadsheet.get_worksheet_by_id(worksheet_id).get("A:F") 
+    dis_tat = pd.DataFrame(values[2:], columns=values[1])
+
+    cols_to_use = ['Date','File No', 'New Money']
+    if not all(col in dis_tat.columns for col in cols_to_use):
+        raise ValueError("Columns mismatch")  
+    
+    # filtering require month
+    start_of_month = datetime.today().replace( day=1,hour=0, minute=0, second=0, microsecond=0)
+    dis_tat = dis_tat.loc[~(dis_tat.Date.isna()),:]
+    dis_tat["Date"] = pd.to_datetime(dis_tat["Date"],format="%d-%b-%y" ,errors="coerce")
+    dis_tat = dis_tat[dis_tat["Date"] > start_of_month ]
+    dis_tat = dis_tat.reset_index(drop=True)
+    
+    # getiing RO and Branch
+    dis_tat['File No'] = dis_tat['File No'].astype(int)
+    dis_tat['New Money'] = dis_tat['New Money'].apply(lambda x: x.replace(",","")).astype(float)
+    
+    mapped_list = data.groupby("Member No").agg({ 'Member Name':'max', 'Branch Code':'max' ,'ROName Loans': 'max'}).reset_index()
+    
+    dis_tat['ROName'] = dis_tat['File No'].map(mapped_list.set_index('Member No')['ROName Loans'])
+    dis_tat['Branch'] = dis_tat['File No'].map(mapped_list.set_index('Member No')['Branch Code'])
+
+    # Return the filtered dataframe directly
+    return dis_tat
+
 @st.cache_data(ttl=3600)
 def load_collections_data(_creds):
     client = gspread.authorize(_creds)
@@ -592,7 +625,7 @@ def render_collections(df, arrears_agg):
                                     .sort_values(by='Days in Arrears', ascending=True)
         st.dataframe(filtered_data.style.format({ "Total Balance": "{:,.2f}","Total In Arrears Loans": "{:,.2f}"}))
 
-def render_ro_page(name,df,arrears_agg):
+def render_ro_page(name,df,arrears_agg,dis_tat):
     # st.header(f"Officer Statistics - {name.title()}") #f0f2f6
     st.markdown(    f""" <div style="  padding:5px;  border-radius:5px; background-color:#caeceb;  border-left:6px solid #1f77b4; margin-bottom:5px;    ">
         <h2 style="margin:0; color:#1f77b4;">   👤 Officer Statistics — {name.upper()}  </h2>  </div>  """,    unsafe_allow_html=True)
@@ -630,6 +663,12 @@ def render_ro_page(name,df,arrears_agg):
 
     st.markdown("#### RO Loan Book Data")
     name = [name]
+    # ----- Preview Disbursements ----
+    with st.expander("Preview Disbursements",icon="📋"):
+        filtered_df = dis_tat.loc[ dis_tat["ROName"].isin(name),:]\
+                        .sort_values(by=['Date'], ascending=[True] ).reset_index(drop=True)
+        st.dataframe(filtered_df.style.format({ "New Money": "{:,.2f}"}))
+    
     # ----- Preview LS ----
     with st.expander("Preview Loan Register",icon="📋"):
         # st.dataframe(df)
@@ -802,11 +841,16 @@ def main():
         if "loan_df" not in st.session_state:
             with st.spinner("Refreshing Portfolio Data..."):
                 st.session_state.loan_df = load_loan_register()
+        df = st.session_state.loan_df
+        # 2. Load Disbursements (Cached)
+        if "disburse_df" not in st.session_state:
+            with st.spinner("Refreshing Disbursement Data..."):
+                st.session_state.disburse_df = load_disbursements(df)
        # This creates all the pivot tables and groupby objects instantly from cache       
         if "processed_data" not in st.session_state:
             with st.spinner("Processing Dashboard Data..."):
                 st.session_state.processed_data = process_dashboard_data(st.session_state.loan_df)    
-        df = st.session_state.loan_df
+        dis_tat = st.session_state.disburse_df
         processed_data = st.session_state.processed_data
     except Exception as e:
         st.error(f"Login successful, but failed to reach Google Sheets: {e}")
@@ -822,7 +866,7 @@ def main():
     elif page_key == "collections":
         render_collections(df, processed_data["arrears_agg"])
     elif page_key == "ro_stats":
-        render_ro_page(name, df,processed_data["arrears_agg"])
+        render_ro_page(name, df,processed_data["arrears_agg"],dis_tat)
     elif page_key == 'data_upload':
         render_file_upload()
 

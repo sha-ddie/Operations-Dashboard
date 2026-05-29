@@ -194,7 +194,7 @@ def load_disbursements(data):
     dis_data = pd.concat([dis_tat, dis_spl], ignore_index=True)
 
     # Return the filtered dataframe directly
-    return dis_tat
+    return dis_data
 
 @st.cache_data(ttl=3600)
 def load_collections_data(_creds):

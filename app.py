@@ -145,7 +145,7 @@ def load_loan_register():
     labels = ["Performing", "1-30", "31-60", "61-90","91&Above"]
     df["Category"] = pd.cut(df["Days in Arrears"], bins=bins, labels=labels, include_lowest=True, right=False)
 
-    cols_to_use = ['Branch Code', 'Member No', 'Loan No', 'Disbursement Date', 'Member Name', 'Loan Type',
+    cols_to_use = ['Branch Code', 'Member Name', 'Member No', 'Loan No', 'Disbursement Date','Approved Amount', 'Loan Type',
                    'Total Balance','Total In Arrears Loans', 'Days in Arrears', 'ROName Loans','Category']
     if not all(col in df.columns for col in cols_to_use):
         raise ValueError("Column mismatch in loan register data") 
@@ -875,11 +875,11 @@ def main():
     page_key = [k for k, v in PAGE_MENU.items() if v == selection][0]
 
     if page_key == "overview":
-        render_overview(df, processed_data)
+        render_overview(df.drop(['Disbursement Date', 'Approved Amount'], axis=1), processed_data)
     elif page_key == "arrears":
-        render_arrears(df, processed_data)
+        render_arrears(df.drop(['Disbursement Date', 'Approved Amount'], axis=1), processed_data)
     elif page_key == "collections":
-        render_collections(df, processed_data["arrears_agg"])
+        render_collections(df.drop(['Disbursement Date', 'Approved Amount'], axis=1), processed_data["arrears_agg"])
     elif page_key == "ro_stats":
         render_ro_page(name, df,processed_data["arrears_agg"],dis_tat)
     elif page_key == 'data_upload':

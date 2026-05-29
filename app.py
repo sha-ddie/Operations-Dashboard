@@ -182,6 +182,17 @@ def load_disbursements(data):
     dis_tat['ROName'] = dis_tat['File No'].map(mapped_list.set_index('Member No')['ROName Loans'])
     dis_tat['Branch'] = dis_tat['File No'].map(mapped_list.set_index('Member No')['Branch Code'])
 
+    # merging SPL LOANS
+    cols = ['Disbursement Date','Member Name','Member No','Loan No','Approved Amount','Branch Code', 'ROName Loans']
+    data["Disbursement Date"] = pd.to_datetime(data["Disbursement Date"])
+    dis_spl = data.loc[data['Disbursement Date']>=start_of_month,cols]
+    dis_spl['New Money'] = dis_spl['Approved Amount']
+    # renaming columns
+    dis_spl = dis_spl.rename(columns={'Disbursement Date':'Date','Member Name': 'Customer Name','Member No': 'File No','Approved Amount':'Gross Amount' ,
+                        'Branch Code': 'Branch','ROName Loans': 'ROName'})
+    # Whole disbursements data
+    dis_data = pd.concat([dis_tat, dis_spl], ignore_index=True)
+
     # Return the filtered dataframe directly
     return dis_tat
 

@@ -176,6 +176,7 @@ def load_disbursements(data):
     # getiing RO and Branch
     dis_tat['File No'] = dis_tat['File No'].astype(int)
     dis_tat['New Money'] = dis_tat['New Money'].apply(lambda x: x.replace(",","")).astype(float)
+    dis_tat['Gross Amount'] = dis_tat['Gross Amount'].apply(lambda x: x.replace(",","")).astype(float)
     
     mapped_list = data.groupby("Member No").agg({ 'Member Name':'max', 'Branch Code':'max' ,'ROName Loans': 'max'}).reset_index()
     
@@ -185,7 +186,7 @@ def load_disbursements(data):
     # merging SPL LOANS
     cols = ['Disbursement Date','Member Name','Member No','Loan No','Approved Amount','Branch Code', 'ROName Loans']
     data["Disbursement Date"] = pd.to_datetime(data["Disbursement Date"])
-    dis_spl = data.loc[data['Disbursement Date']>=start_of_month,cols]
+    dis_spl =  data.loc[ (data['Disbursement Date']>=start_of_month)&(data['Loan Type']=='SPL'),cols]
     dis_spl['New Money'] = dis_spl['Approved Amount']
     # renaming columns
     dis_spl = dis_spl.rename(columns={'Disbursement Date':'Date','Member Name': 'Customer Name','Member No': 'File No','Approved Amount':'Gross Amount' ,
@@ -682,7 +683,7 @@ def render_ro_page(name,df,arrears_agg,dis_tat):
     with st.expander("Preview Disbursements",icon="📋"):
         filtered_df = dis_tat.loc[ dis_tat["ROName"].isin(name),:]\
                         .sort_values(by=['Date'], ascending=[True] ).reset_index(drop=True)
-        st.dataframe(filtered_df.style.format({ "New Money": "{:,.2f}"}))
+        st.dataframe(filtered_df.style.format({ "Gross Amount": "{:,.2f}", "New Money": "{:,.2f}"}))
     
     # ----- Preview LS ----
     with st.expander("Preview Loan Register",icon="📋"):

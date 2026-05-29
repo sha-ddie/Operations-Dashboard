@@ -654,7 +654,7 @@ def render_ro_page(name,df,arrears_agg,dis_tat):
     total_portfolio = df.loc[df['ROName Loans'] == name, 'Total Balance'].sum()
     total_arrears = df.loc[df['ROName Loans'] == name, 'Total In Arrears Loans'].sum()
     non_performing = df.loc[ ((df['ROName Loans'] == name) & (df['Days in Arrears']>0)), 'Total Balance'].sum()
-    par = non_performing / total_portfolio
+    par = non_performing / total_portfolio if total_portfolio else 0
     total_disbursments =  dis_tat.loc[ dis_tat["ROName"]==name ,"New Money"].sum()
 
     col1, col2, col3, col4, col5 = st.columns(5)

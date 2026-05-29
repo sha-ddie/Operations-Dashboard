@@ -1,11 +1,11 @@
 # Operations-Dashboard
-Project Overview
+## Project Overview
 
 The Operations Dashboard project is a business intelligence and analytics solution designed to monitor, analyze, and optimize operational performance through interactive visualizations and data-driven insights. The dashboard consolidates operational data into a centralized reporting platform, enabling stakeholders to track key performance indicators (KPIs), identify trends, and support strategic decision-making.
 This project demonstrates end-to-end data analytics workflows including data collection, cleaning, transformation, analysis, and dashboard development.
 
 ---
-Dashboard Objectives
+## Dashboard Objectives
 
 The main objectives of this project were to:
 Monitor operational performance in real time
@@ -16,7 +16,7 @@ Enable stakeholders to track trends and performance over time
 Present complex operational data in a simple and interactive format
 
 ---
-Key Features
+## Key Features
 
 Interactive KPI dashboards
 Dynamic filtering and drill-down analysis
@@ -27,7 +27,7 @@ Automated reporting workflows
 Business insights generation
 
 ---
-Tools & Technologies Used
+## Tools & Technologies Used
 
 Tool / Technology	Purpose
 Google Sheets	Data Storage and extraction
@@ -37,7 +37,7 @@ Git & GitHub	Version control and project collaboration
 CSV / Excel Datasets	Source data storage
 
 ---
-Data Cleaning & Preparation Process
+## Data Cleaning & Preparation Process
 
 A significant part of the project involved preparing raw operational data for analysis. The following steps were performed:
 1. Data Collection
@@ -65,7 +65,7 @@ Cross-checked totals against source systems
 Verified dashboard metrics accuracy
 Performed quality assurance checks
 ---
-Data Analysis Process
+## Data Analysis Process
 
 The analysis process focused on uncovering operational insights and performance trends.
 Analytical Activities
@@ -80,7 +80,7 @@ Performance trends
 Service delivery metrics
 
 ---
-Dashboard Insights
+## Dashboard Insights
 
 The dashboard provides insights into:
 Areas with operational inefficiencies
@@ -91,7 +91,7 @@ Operational trends and forecasting indicators
 KPI performance against targets
 
 ---
-Business Impact
+## Business Impact
 
 The Operations Dashboard delivers measurable value to business stakeholders by:
 Improved Decision-Making
@@ -111,14 +111,15 @@ Encourages analytical decision-making across teams
 Promotes transparency and accountability
 
 ---
-Open Dashboard
+## Open Dashboard
 
 Contains sensitive data hence can't be viewed, but find screenshots below;
-![image]('data/RO-KPIs')
-![image2]('data/View')
+![image](data/RO-KPIs.png)
+
+![image2](data/View.png)
 
 ---
-Future Improvements
+## Future Improvements
 
 Potential enhancements for future versions include:
 Real-time data streaming integration

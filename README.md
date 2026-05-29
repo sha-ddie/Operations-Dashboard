@@ -1,4 +1,5 @@
 # Operations-Dashboard
+![image2](data/View.png)
 ## Project Overview
 
 The Operations Dashboard project is a business intelligence and analytics solution designed to monitor, analyze, and optimize operational performance through interactive visualizations and data-driven insights. The dashboard consolidates operational data into a centralized reporting platform, enabling stakeholders to track key performance indicators (KPIs), identify trends, and support strategic decision-making.
@@ -115,8 +116,6 @@ Promotes transparency and accountability
 
 Contains sensitive data hence can't be viewed, but find screenshots below;
 ![image](data/RO-KPIs.png)
-
-![image2](data/View.png)
 
 ---
 ## Future Improvements

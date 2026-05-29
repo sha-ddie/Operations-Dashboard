@@ -145,7 +145,7 @@ def load_loan_register():
     labels = ["Performing", "1-30", "31-60", "61-90","91&Above"]
     df["Category"] = pd.cut(df["Days in Arrears"], bins=bins, labels=labels, include_lowest=True, right=False)
 
-    cols_to_use = ['Branch Code', 'Member No', 'Loan No', 'Member Name', 'Loan Type',
+    cols_to_use = ['Branch Code', 'Member No', 'Loan No', 'Disbursement Date', 'Member Name', 'Loan Type',
                    'Total Balance','Total In Arrears Loans', 'Days in Arrears', 'ROName Loans','Category']
     if not all(col in df.columns for col in cols_to_use):
         raise ValueError("Column mismatch in loan register data") 

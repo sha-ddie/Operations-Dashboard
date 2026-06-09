@@ -832,7 +832,7 @@ def main():
         "teams": ["ro_stats"],
         "credit": [ "arrears", "collections"],
         "finance":["data_upload" ],
-        "manager": [ "arrears", "collections","ro_stats"],
+        "manager": [ "overview", "arrears", "collections","ro_stats"],
         "HOD": ["data_upload", "overview", "arrears"],
         "admin": ["data_upload", "overview", "arrears", "collections", "ro_stats"]
     }

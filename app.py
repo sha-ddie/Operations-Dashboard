@@ -141,8 +141,8 @@ def load_loan_register():
     df['Branch Code'] = df['Branch Code'].replace("KRK","RNG" )
     df.loc[df['ROName Loans']=='JOHN NJIRI KURIA','Branch Code'] = 'RECOVERY'
     
-    bins = [0, 1, 31, 61, 91, float("inf")]
-    labels = ["Performing", "1-30", "31-60", "61-90","91&Above"]
+    bins = [0, 1, 16, 31, 61, 91, float("inf")]
+    labels = ["Performing", "1-15","16-30", "31-60", "61-90","91&Above"]
     df["Category"] = pd.cut(df["Days in Arrears"], bins=bins, labels=labels, include_lowest=True, right=False)
 
     cols_to_use = ['Branch Code', 'Member Name', 'Member No', 'Loan No', 'Disbursement Date','Approved Amount', 'Loan Type',
@@ -364,7 +364,7 @@ def process_dashboard_data(df):
         observed=False
     )
     ro_par["PAR"] = ro_par.apply(lambda x: (x['Total']-x['Performing'])/x['Total'], axis=1)
-    ro_par = ro_par.drop(columns="Performing")[["Total",'PAR',"1-30", "31-60","61-90","91&Above"]]
+    ro_par = ro_par.drop(columns="Performing")[["Total",'PAR', "1-15", "16-30", "31-60","61-90","91&Above"]]
     data["ro_summary"] = ro_par
 
     # 5. Arrears Aggregation (for Collections Page)
@@ -482,7 +482,7 @@ def render_overview(df, processed_data):
     ro_summary = processed_data["ro_summary"]
     styled2 = (
         ro_summary.style
-        .format({ "PAR": "{:.2%}", "1-30": "{:,.0f}", "31-60": "{:,.0f}", "61-90": "{:,.0f}","91&Above": "{:,.0f}","Total": "{:,.0f}" })
+        .format({ "PAR": "{:.2%}", "1-15": "{:,.0f}", "16-30": "{:,.0f}", "31-60": "{:,.0f}", "61-90": "{:,.0f}","91&Above": "{:,.0f}","Total": "{:,.0f}" })
         .map(par_color, subset=["PAR"]) )
     st.dataframe(styled2.hide(axis="index"), use_container_width=True, height=600)
 
@@ -515,7 +515,7 @@ def render_arrears(df, processed_data):
     category_arrears = processed_data["ageing_summary"]
     styled = (
         category_arrears.style
-        .format({ "1-30": "{:,.0f}", "31-60": "{:,.0f}", "61-90": "{:,.0f}","91&Above": "{:,.0f}","Total": "{:,.0f}", "PAR": "{:.2%}" })
+        .format({ "1-15": "{:,.0f}", "16-30": "{:,.0f}", "31-60": "{:,.0f}", "61-90": "{:,.0f}","91&Above": "{:,.0f}","Total": "{:,.0f}", "PAR": "{:.2%}" })
         .map(par_color, subset=["PAR"]) 
     )
     st.dataframe(styled.hide(axis="index"), use_container_width=True, height=310)
@@ -525,7 +525,7 @@ def render_arrears(df, processed_data):
     branch_par = processed_data["par_summary"]
     styled1 = (
         branch_par.style
-        .format({ "1-30": "{:.2%}", "31-60": "{:.2%}", "61-90": "{:.2%}","91&Above": "{:.2%}","Total": "{:.2%}" })
+        .format({ "1-15": "{:.2%}", "16-30": "{:.2%}", "31-60": "{:.2%}", "61-90": "{:.2%}","91&Above": "{:.2%}","Total": "{:.2%}" })
         .map(par_color, subset=["Total"]) )
     st.dataframe(styled1.hide(axis="index"), use_container_width=True, height=310)  
 

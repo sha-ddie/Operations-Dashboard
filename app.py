@@ -10,7 +10,8 @@ import json
 from google.oauth2.service_account import Credentials
 from gspread_dataframe import set_with_dataframe
 from dateutil.relativedelta import relativedelta
-
+import psutil
+import os
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
     page_title="SPRINGBOARD CAPITAL",
@@ -18,6 +19,11 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded")
 
+process = psutil.Process(os.getpid())
+
+st.sidebar.write(
+    f"RAM: {process.memory_info().rss / 1024**2:.1f} MB"
+)
 # ---------------- CUSTOM CSS ----------------
 st.markdown("""
 <style>

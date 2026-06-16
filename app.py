@@ -677,7 +677,9 @@ def render_ro_page(name,df,arrears_agg,dis_tat):
     with col4:
         st.markdown("##### ⚠️ Arrears")
         st.markdown(f"#### {total_arrears:,.0f}")
-        st.caption(f"Arrear {total_arrears/total_portfolio:.1%} of loan book")
+        ratio = ( total_arrears / total_portfolio   
+                 if pd.notna(total_portfolio) and total_portfolio > 0   else 0 )
+        st.caption(f"Arrear {ratio:.1%} of loan book")
     with col5:
         st.markdown("##### 📉 PAR")
         st.markdown(f"#### {par:.2%}")

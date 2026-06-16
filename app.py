@@ -811,8 +811,6 @@ def render_sidebar(name, role, display_options):
         st.divider()
         if st.button("Logout", use_container_width=True):
             st.logout()
-            process = psutil.Process(os.getpid())
-            st.sidebar.write(f"RAM: {process.memory_info().rss / 1024**2:.1f} MB" )
     return selected
 
 
@@ -856,41 +854,67 @@ def main():
     display_options = [PAGE_MENU[k] for k in allowed_keys]
     selection = render_sidebar(name, role, display_options)
     if not selection: return
-        
-    # --- LOAD DATA ---
-    try:
-        # 1. Load Raw Data (Cached)
-        if "loan_df" not in st.session_state:
-            with st.spinner("Refreshing Portfolio Data..."):
-                st.session_state.loan_df = load_loan_register()
-        df = st.session_state.loan_df
-        # 2. Load Disbursements (Cached)
-        if "disburse_df" not in st.session_state:
-            with st.spinner("Refreshing Disbursement Data..."):
-                st.session_state.disburse_df = load_disbursements(df)
-       # This creates all the pivot tables and groupby objects instantly from cache       
-        if "processed_data" not in st.session_state:
-            with st.spinner("Processing Dashboard Data..."):
-                st.session_state.processed_data = process_dashboard_data(st.session_state.loan_df)    
-        dis_tat = st.session_state.disburse_df
-        processed_data = st.session_state.processed_data
-    except Exception as e:
-        st.error(f"Login successful, but failed to reach Google Sheets: {e}")
-        return
 
     # --- PAGE ROUTING ----
     page_key = [k for k, v in PAGE_MENU.items() if v == selection][0]
 
-    if page_key == "overview":
-        render_overview(df.drop(['Disbursement Date', 'Approved Amount'], axis=1), processed_data)
-    elif page_key == "arrears":
-        render_arrears(df.drop(['Disbursement Date', 'Approved Amount'], axis=1), processed_data)
-    elif page_key == "collections":
-        render_collections(df.drop(['Disbursement Date', 'Approved Amount'], axis=1), processed_data["arrears_agg"])
-    elif page_key == "ro_stats":
-        render_ro_page(name, df,processed_data["arrears_agg"],dis_tat)
-    elif page_key == 'data_upload':
-        render_file_upload()
+    # --- LOAD DATA (Lazy Loading Strategy) ---
+    # We only load data if the page actually needs it.
+    # This makes "Data Upload" instant because it skips this block entirely.
+    
+    df = None
+    processed_data = None
+    dis_tat = None
+
+    try:
+        # Page 1: Overview (Needs Loan Register + Processed Data)
+        if page_key == "overview":
+            with st.spinner("Refreshing Portfolio Data..."):
+                df = load_loan_register()
+                processed_data = process_dashboard_data(df)
+            render_overview(df.drop(['Disbursement Date', 'Approved Amount'], axis=1), processed_data)
+        
+        # Page 2: Arrears (Needs Loan Register + Processed Data)
+        elif page_key == "arrears":
+            with st.spinner("Refreshing Portfolio Data..."):
+                df = load_loan_register()
+                processed_data = process_dashboard_data(df)
+            render_arrears(df.drop(['Disbursement Date', 'Approved Amount'], axis=1), processed_data)
+        
+        # Page 3: Collections (Needs Loan Register + Processed Data)
+        elif page_key == "collections":
+            with st.spinner("Refreshing Portfolio Data..."):
+                df = load_loan_register()
+                processed_data = process_dashboard_data(df)
+            render_collections(df.drop(['Disbursement Date', 'Approved Amount'], axis=1), processed_data["arrears_agg"])
+        
+        # Page 4: RO Stats (Needs Loan Register + Disbursements + Processed Data)
+        elif page_key == "ro_stats":
+            with st.spinner("Refreshing Data..."):
+                df = load_loan_register()
+                dis_tat = load_disbursements(df) # Only load this here
+                processed_data = process_dashboard_data(df)
+            render_ro_page(name, df, processed_data["arrears_agg"], dis_tat)
+        
+        # Page 5: Data Upload (Needs NO Heavy Data)
+        elif page_key == 'data_upload':
+            # Instant load - no Google Sheets calls
+            render_file_upload()
+
+    except Exception as e:
+        st.error(f"Login successful, but failed to reach Google Sheets: {e}")
+        return
+
+    # if page_key == "overview":
+    #     render_overview(df.drop(['Disbursement Date', 'Approved Amount'], axis=1), processed_data)
+    # elif page_key == "arrears":
+    #     render_arrears(df.drop(['Disbursement Date', 'Approved Amount'], axis=1), processed_data)
+    # elif page_key == "collections":
+    #     render_collections(df.drop(['Disbursement Date', 'Approved Amount'], axis=1), processed_data["arrears_agg"])
+    # elif page_key == "ro_stats":
+    #     render_ro_page(name, df,processed_data["arrears_agg"],dis_tat)
+    # elif page_key == 'data_upload':
+    #     render_file_upload()
 
 if __name__ == "__main__":
     main()

@@ -872,6 +872,7 @@ def main():
             with st.spinner("Refreshing Portfolio Data..."):
                 df = load_loan_register()
                 processed_data = process_dashboard_data(df)
+                time.sleep(5)
             render_overview(df.drop(['Disbursement Date', 'Approved Amount'], axis=1), processed_data)
         
         # Page 2: Arrears (Needs Loan Register + Processed Data)
@@ -879,6 +880,7 @@ def main():
             with st.spinner("Refreshing Portfolio Data..."):
                 df = load_loan_register()
                 processed_data = process_dashboard_data(df)
+                time.sleep(5)
             render_arrears(df.drop(['Disbursement Date', 'Approved Amount'], axis=1), processed_data)
         
         # Page 3: Collections (Needs Loan Register + Processed Data)
@@ -886,6 +888,7 @@ def main():
             with st.spinner("Refreshing Portfolio Data..."):
                 df = load_loan_register()
                 processed_data = process_dashboard_data(df)
+                time.sleep(5)
             render_collections(df.drop(['Disbursement Date', 'Approved Amount'], axis=1), processed_data["arrears_agg"])
         
         # Page 4: RO Stats (Needs Loan Register + Disbursements + Processed Data)
@@ -894,6 +897,7 @@ def main():
                 df = load_loan_register()
                 dis_tat = load_disbursements(df) # Only load this here
                 processed_data = process_dashboard_data(df)
+                time.sleep(5)
             render_ro_page(name, df, processed_data["arrears_agg"], dis_tat)
         
         # Page 5: Data Upload (Needs NO Heavy Data)

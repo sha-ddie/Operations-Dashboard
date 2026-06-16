@@ -19,11 +19,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded")
 
-process = psutil.Process(os.getpid())
 
-st.sidebar.write(
-    f"RAM: {process.memory_info().rss / 1024**2:.1f} MB"
-)
 # ---------------- CUSTOM CSS ----------------
 st.markdown("""
 <style>
@@ -815,6 +811,8 @@ def render_sidebar(name, role, display_options):
         st.divider()
         if st.button("Logout", use_container_width=True):
             st.logout()
+            process = psutil.Process(os.getpid())
+            st.sidebar.write(f"RAM: {process.memory_info().rss / 1024**2:.1f} MB" )
     return selected
 
 
